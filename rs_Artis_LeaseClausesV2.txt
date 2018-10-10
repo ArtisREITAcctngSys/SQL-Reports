@@ -4,7 +4,7 @@
   NAME 	       : rs_sql_ArtisLeaseClausesV2.txt
 
 	DESCRIPTION
-		Lease By Customer (SQL Server)
+		Lease By Customer
 	CREATED
 		01/02/2018 Mike Perner
 //End Notes
