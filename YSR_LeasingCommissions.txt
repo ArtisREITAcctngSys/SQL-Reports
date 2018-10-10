@@ -1,0 +1,100 @@
+//Select Header
+Select 
+'#FROMDATE#' ReportDate,
+DateAdd(Month,0,'#FromDate#') Reportdate0,
+DATEADD(Month,1,'#FROMDATE#') ReportDate1,
+DATEADD(Month,2,'#FROMDATE#') ReportDate2,
+DATEADD(Month,3,'#FROMDATE#') ReportDate3,
+DATEADD(Month,4,'#FROMDATE#') ReportDate4,
+DATEADD(Month,5,'#FROMDATE#') ReportDate5,
+DATEADD(Month,6,'#FROMDATE#') ReportDate6,
+DATEADD(Month,7,'#FROMDATE#') ReportDate7,
+DATEADD(Month,8,'#FROMDATE#') ReportDate8,
+DATEADD(Month,9,'#FROMDATE#') ReportDate9,
+DATEADD(Month,10,'#FROMDATE#') ReportDate10,
+DATEADD(Month,11,'#FROMDATE#') ReportDate11,
+DATEADD(Month,12,'#FROMDATE#') ReportDate12,
+DATEADD(Month,13,'#FROMDATE#') ReportDate13,
+DATEADD(Month,14,'#FROMDATE#') ReportDate14,
+DATEADD(Month,15,'#FROMDATE#') ReportDate15,
+DATEADD(Month,16,'#FROMDATE#') ReportDate16,
+DATEADD(Month,17,'#FROMDATE#') ReportDate17,
+DATEADD(Month,18,'#FROMDATE#') ReportDate18,
+DATEADD(Month,19,'#FROMDATE#') ReportDate19,
+DATEADD(Month,20,'#FROMDATE#') ReportDate20,
+DATEADD(Month,21,'#FROMDATE#') ReportDate21,
+DATEADD(Month,22,'#FROMDATE#') ReportDate22,
+DATEADD(Month,23,'#FROMDATE#') ReportDate23,
+DATEADD(Month,24,'#FROMDATE#') ReportDate24,
+DATEADD(Month,25,'#FROMDATE#') ReportDate25,
+DATEADD(Month,26,'#FROMDATE#') ReportDate26,
+DATEADD(Month,27,'#FROMDATE#') ReportDate27,
+DATEADD(Month,28,'#FROMDATE#') ReportDate28,
+DATEADD(Month,29,'#FROMDATE#') ReportDate29,
+DATEADD(Month,30,'#FROMDATE#') ReportDate30,
+DATEADD(Month,31,'#FROMDATE#') ReportDate31,
+DATEADD(Month,32,'#FROMDATE#') ReportDate32,
+DATEADD(Month,33,'#FROMDATE#') ReportDate33,
+DATEADD(Month,34,'#FROMDATE#') ReportDate34,
+DATEADD(Month,35,'#FROMDATE#') ReportDate35,
+DATEADD(Month,36,'#FROMDATE#') ReportDate36,
+DATEADD(Month,37,'#FROMDATE#') ReportDate37,
+DATEADD(Month,38,'#FROMDATE#') ReportDate38,
+DATEADD(Month,39,'#FROMDATE#') ReportDate39,
+DATEADD(Month,40,'#FROMDATE#') ReportDate40,
+DATEADD(Month,41,'#FROMDATE#') ReportDate41,
+DATEADD(Month,42,'#FROMDATE#') ReportDate42,
+DATEADD(Month,43,'#FROMDATE#') ReportDate43,
+DATEADD(Month,44,'#FROMDATE#') ReportDate44,
+DATEADD(Month,45,'#FROMDATE#') ReportDate45,
+DATEADD(Month,46,'#FROMDATE#') ReportDate46,
+DATEADD(Month,47,'#FROMDATE#') ReportDate47,
+DATEADD(Month,48,'#FROMDATE#') ReportDate48,
+DATEADD(Month,49,'#FROMDATE#') ReportDate49,
+DATEADD(Month,50,'#FROMDATE#') ReportDate50,
+DATEADD(Month,51,'#FROMDATE#') ReportDate51,
+DATEADD(Month,52,'#FROMDATE#') ReportDate52,
+DATEADD(Month,53,'#FROMDATE#') ReportDate53,
+DATEADD(Month,54,'#FROMDATE#') ReportDate54,
+DATEADD(Month,55,'#FROMDATE#') ReportDate55,
+DATEADD(Month,56,'#FROMDATE#') ReportDate56,
+DATEADD(Month,57,'#FROMDATE#') ReportDate57,
+DATEADD(Month,58,'#FROMDATE#') ReportDate58,
+DATEADD(Month,59,'#FROMDATE#') ReportDate59,
+DATEADD(Month,60,'#FROMDATE#') ReportDate60
+//End Select
+
+//Select PropertyList
+Select
+RTRIM(p.sCode) PropertyCode,
+lp.dpercent/100 Percents
+FROM Property p
+INNER JOIN      listprop lp 
+ON              lp.hproperty = p.hmy
+WHERE p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) AND itype = 3
+and lp.hproplist = '158'
+//End Select
+
+//Select CostIndc
+select 
+p.scode Property,
+T.slastname Lease,
+Case WHEN CI.hleaseassettype = 4 then 'Tenant Improvements' End as ASSETType,
+DB.dDepreciationBasis Original_amount,
+CI.DtStart DTStart,
+CASE DB.dDepreciatedValue WHEN 0 then 
+	(Case when DB.dtLastPostedEndPeriod is null then db.dtplacedinservice else dateadd(month,1,db.dtlastpostedendperiod)-1 end) else
+		CASE FA.Istatus when 3 then 
+			(Case when DB.dtLastPostedEndPeriod is null then db.dtplacedinservice else dateadd(month,1,db.dtlastpostedendperiod)-1 end)
+				else DateAdd(Month,((DB.dRecoveryPeriod+.0001)*12),DB.dtPlacedinService)-1 END END DtEnd
+from COMMCOSTINDUCEMENT CI
+Inner join mmasset FA on FA.HMY = CI.hasset
+Inner Join ICASSETDEPRECIATIONBOOK DB on FA.Hmy = DB.Hasset
+inner join tenant t on t.hmyperson = CI.htenant
+inner join property p on p.hmy = t.hproperty
+WHERE
+p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# ))
+and CI.hleaseassettype =4
+and db.ibook in (1, 6)
+order by 1, 3, 5
+//End Select

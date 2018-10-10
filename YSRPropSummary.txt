@@ -1,0 +1,75 @@
+//Select Header
+Declare @fromdate as datetime
+set @fromdate = '#fromdate#'
+select
+@fromdate as ReportDate
+//End Select
+
+//Select PropSched
+select
+p.scode Pcode,
+P.saddr1 PName,
+P.saddr2 PSAddr,
+P.SCITY PCity,
+P.SState PState,
+A.subgroup3 AssetClass,
+case when A.SUBGROUP9 is not null then A.SUBGROUP9
+     when A.SUBGROUP9 is null then A.SUBGROUP8 end Classtype,
+a.subgroup10 YrBuilt,
+p.DPPRICE PurchPrice,
+P.SACQUIRE AcquisitionDate,
+PA.DSQFT3 OwnedGLA,
+lp.dpercent OwnerPercent,
+A.subgroup6 PropManager
+from property p
+ Inner Join Attributes A on (p.hMy = a.hProp) 
+inner join commpropareatotal PA on Pa.prophmy = p.HMY
+Inner join listprop2 lp on lp.hproperty = p.hmy
+Where LP.hPropList = '421'
+//End Select
+
+//Select Canada
+select p.scode Property
+from property p
+inner join listprop2 lp on lp.hproperty = p.hmy
+where lp.hproplist = '315'
+Order by 1
+//End Select
+
+//Select US
+select p.scode Property
+from property p
+inner join listprop2 lp on lp.hproperty = p.hmy
+where lp.hproplist = '746'
+Order by 1
+//End Select
+
+//Select Mortgage
+select distinct left(p.scode,4) Pcode,
+P.saddr1 PropName,
+MO.scode MortCode,
+(MO.scode) + (right(convert(varchar, dad.dtpaydate,103),7)) vlookup,
+v.ulastname Lender,
+CASE MC.hcurrency when 1 then 'CAD' when 2 then 'USD' end Currency,
+dad.dinterestrate interestrate,
+mo.dtmaturity MaturityDate,
+mo.cOrigBal OrigBalance,
+DAD.Balloonpayment DebtRepaymentMaturity,
+right (convert(varchar ,mo.dtmaturity,101),4) YearMaturity,
+dad.dPrinBal MortgageBalance
+
+from mortgageAP Mo
+inner join DebtAmortSched DA on DA.Hmortgage = MO.Hmy
+Inner join DebtAmortSchedDetail DAD on DAD.hamortsched = da.hmy
+inner join property p on p.hmy = Mo.hprop
+inner join person v on v.hmy = MO.hvendor
+Inner Join Attributes A on p.hMy = a.hProp
+inner join MortgageAPMulticurrency MC on MC.Hmortgage = Mo.HMY
+Inner join listprop2 lp on lp.hproperty = p.hmy
+Where 1=1
+and lp.hproplist = '421'
+and da.bvalid = '-1'
+and Mo.dtbegin <= '#fromdate#'
+and Mo.dtMaturity >= '#FromDate#'
+and dad.dtpaydate between (dbo.First_Day(Convert(DATETIME,'#FromDate#',101))) and CONVERT(DATETIME,'#FromDate#', 101)
+//End Select

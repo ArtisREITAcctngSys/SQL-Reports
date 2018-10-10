@@ -1,0 +1,80 @@
+//Vista
+//Notes
+
+  NAME 	       : rs_sql_ArtisLeaseClausesV2.txt
+
+	DESCRIPTION
+		Lease By Customer (SQL Server)
+	CREATED
+		01/02/2018 Mike Perner
+//End Notes
+
+//Database
+SSRS rp_ArtisLeaseClauses.rdlc
+//End Database
+
+//Title
+Artis Lease Clauses V2
+//End Title
+
+//Select Dataset1
+select  p.scode AS PropID,
+	p.saddr1 AS PROPERTY, 
+	t.slastname as tenant,
+	t.scode as leasecode,
+        t.sleasecompany as dba,
+	cc.sname, 
+cast(cc.sDesc as nvarchar(4000)) sdesc,  
+cc.sreference, cc.clausedate,
+	ccl.scode
+from property p
+	inner join listprop lp on lp.hproperty = p.hmy 
+	inner join attributes a on a.hprop = p.hmy 
+	inner join tenant t on t.hproperty = p.hmy 
+	inner join commtenant ct on ct.htenant = t.hmyperson
+	inner join commtenstatus ts on ts.istatus = t.istatus
+	inner join commleasetype cl on cl.hmy = ct.hleasetype
+	inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0))
+	left outer join CommSchedule cs  on cs.hamendment = ca.hmy and cs.itype=2
+		
+	left outer join CamRule cr on cr.hschedule = cs.hmy
+			
+	left outer join chargtyp ch on cr.hchargecode = ch.hmy
+	inner join commclauses cc on ca.hmy = cc.hamendment and ca.istatus = 1
+	inner join commclauselib ccl on cc.hcommclauselib = ccl.hmy
+where 1=1 
+	and ca.istatus not in (0,3)
+	and cc.sReference not in ('N/A', 'NA')
+	and cc.sdesc not in ('N/A', 'NA', 'Not Applicable')
+	#conditions#
+GROUP BY p.saddr1, p.scode, a.subgroup3, p.scode,
+	a.subgroup1, a.subgroup4, t.slastname, t.scode,
+	cc.sname, cc.sdesc, cc.sreference, cc.clausedate,
+	ccl.scode,t.sleasecompany
+//End Select
+
+//Columns
+//Type,  Name,Hd1,Hd2,	Hd3,          	Hd4, 		Show,  Clr, Frmla, Drill,  Key, Width
+t,
+t,
+t,
+t,
+t,
+t,
+t,
+t,
+t,
+t,
+//End columns
+
+//Filter
+//Type, DataTyp,         Name,         Caption, 	 Key,                                               List,                        Val1,     Val2,  Mandatory,  Multi-Type,  Title
+//0,            A,     asofdate, 	    As Of Date,    ,                                                      ,                            ,         ,          Y,          N,      Y,  
+C,            T,     propcode,        Property,    ,                                                    61,          p.hmy = #propcode#,         ,           ,          N,      Y,
+C,            T,     tenantid,          Tenant,    ,                                                     1,    t.hmyperson = #tenantid#,         ,           ,          N,      Y,
+0,            T,    ccl.scode,         Clause Type,    ,    "select distinct(scode), sname from commclauselib",  ccl.scode = '#ccl.scode#',         ,           ,          N,      Y,
+M    ,T    ,Status              ,Status,    , select status from commtenstatus order by istatus,   ts.status in ('#status#'),   	  ,         ,    ,  Y,
+//End Filter
+//Version
+Artis Lease Clauses V2&nbsp&nbsp&nbsp&nbsp<br>Authored by:&nbsp<a href="mailto:mperner@artisreit.com" target="new">Mike Perner</a><br>
+//END Version

@@ -1,0 +1,143 @@
+//Select Header
+Select Distinct
+Convert(Varchar,'#DATE#',101) AsOfDate,
+p.scode property,
+p.saddr1 Name
+from property p
+where p.HMY in  (SELECT hproplist FROM   listprop2 WHERE  hproplist IN ( #Property# ))
+//End Select
+
+//Select InvReg
+select Distinct
+p.scode PropCode,
+GR.hmy Ihmy,
+GR.UREF Invoice,
+GD.HINVORREC InvReg,
+V.UCODE Vcode,
+v.ulastname Vendor,
+left(a.scode,4) + '-' + right(rtrim(a.scode),3)  Account,
+GD.Samount Amount,
+GR.upostdate Postmonth,
+GR.sdateoccurred InvoiceDate,
+GR.istatus,
+GD.Snotes Description,
+WFH.Sname WFName,
+WFS.Sname WFStep
+From Property p
+inner join GLInvRegDetail GD  on GD.hprop = p.hmy
+inner join acct a on a.hmy = gd.hacct
+inner join GLInvRegTrans GR on GR.hmy = GD.hinvorrec and GR.istatus = 2
+Inner join vendor v on v.hmyperson = GR.hperson
+ JOIN wf_tran_header wfth 
+         ON gr.hmy = wfth.hrecord 
+            AND wfth.itype = 20003 
+       JOIN wf_tran_step wfts 
+         ON wfth.hmy = wfts.htranheader 
+       JOIN wf_header wfh 
+         ON wfth.hwf = wfh.hmy 
+       JOIN wf_step wfs 
+         ON wfts.hstep = wfs.hmy 
+       JOIN wf_tran_step_approver wftsa
+         ON wftsa.htranstep = wfts.hmy 
+		 
+where 1 = 1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #Property# ))
+and GR.sdateoccurred <= '#Date#'
+and GD.Samount > #Threshold#
+and WFS.Sname not in (Case when '#APStep#' = 'No' then 'AP' else '' end)
+and a.irpttype not in (Case when '#Capital#' = 'No' then 1 else 99 end)
+and wfth.iStatus = 0
+Order by 1, 6, 5, 4
+//End Select
+
+//Select Accts
+Select Distinct
+	p.scode  as propcode,
+	left(a.scode,4) + '-' + right(rtrim(a.scode),3)  Account
+Into #TempTable1
+from MM2PO PO
+inner join mm2podet PODET on PODET.hpo = PO.hmy
+Inner join property p on p.hmy = podet.hprop
+Inner join vendor v on v.hmyperson = PO.hvendor
+left outer join detail d on d.hpodet = podet.hmy 
+inner join acct a on a.hmy = podet.HPAYACCT
+left outer join GLInvRegDetail GD on GD.hpodet = podet.hmy and (Select gr.istatus from GLinvregtrans gr where gr.hmy = gd.hinvorrec) = 2
+where 1=1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #Property# ))
+and PO.bclosed = 0
+and podet.BCLOSED = 0
+and PO.Dtreqdate <= '#Date#'
+and isnull(podet.dtreceiveddate,'12/31/2099') <= Case when '#received#' = 'Yes' then '#Date#' else '12/31/2100' end
+and po.hmy > case when '#OpenPos#' = 'Yes' then 0 else 9999999999999999 end
+and a.irpttype not in (Case when '#Capital#' = 'No' then 1 else 99 end)
+Group by po.scode, p.scode, v.ucode, v.ulastname, podet.dtrantotalcost, podet.dtaxamount1, a.scode, podet.sdesc
+Having (Podet.dTranTotalCost - (sum(isnull(GD.Samount,0) + isnull(d.samount,0)))) > #Threshold#
+order by 1, 2
+
+Insert into #TempTable1 (propcode, Account)
+Select Distinct
+	p.scode  as propcode,
+	left(a.scode,4) + '-' + right(rtrim(a.scode),3)  Account
+From Property p
+inner join GLInvRegDetail GD on GD.hprop = p.hmy
+inner join acct a on a.hmy = gd.hacct
+inner join GLInvRegTrans GR on GR.hmy = GD.hinvorrec and GR.istatus = 2
+Inner join vendor v on v.hmyperson = GR.hperson
+ JOIN wf_tran_header wfth 
+         ON gr.hmy = wfth.hrecord 
+            AND wfth.itype = 20003 
+       JOIN wf_tran_step wfts 
+         ON wfth.hmy = wfts.htranheader 
+       JOIN wf_header wfh 
+         ON wfth.hwf = wfh.hmy 
+       JOIN wf_step wfs 
+         ON wfts.hstep = wfs.hmy 
+       JOIN wf_tran_step_approver wftsa
+         ON wftsa.htranstep = wfts.hmy 
+
+where 1 = 1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #Property# ))
+and GR.sdateoccurred <= '#Date#'
+and GD.Samount > #Threshold#
+and WFS.Sname not in (Case when '#APStep#' = 'No' then 'AP' else '' end)
+and a.irpttype not in (Case when '#Capital#' = 'No' then 1 else 99 end)
+Order by 1,2
+
+Select Distinct
+T.propcode PropCode,
+T.account Account
+from
+#Temptable1 T
+Order by 1, 2
+
+//End Select
+
+//Select POs
+select Distinct 
+P.scode PropCode,
+V.UCODE Vcode,
+Left(V.ULASTNAME,20) Vname,
+PO.scode PO,
+podet.dTranTotalCost POLineAmnt,
+sum(isnull(GD.Samount,0) + isnull(d.samount,0)) Paid,
+left(a.scode,4) + '-' + right(rtrim(a.scode),3)  Account,
+podet.sdesc Description
+from MM2PO PO
+inner join mm2podet PODET on PODET.hpo = PO.hmy
+Inner join property p on p.hmy = podet.hprop
+Inner join vendor v on v.hmyperson = PO.hvendor
+left outer join detail d on d.hpodet = podet.hmy 
+inner join acct a on a.hmy = podet.HPAYACCT
+left outer join GLInvRegDetail GD on GD.hpodet = podet.hmy and (Select gr.istatus from GLinvregtrans gr where gr.hmy = gd.hinvorrec) = 2
+where 1=1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #Property# ))
+and PO.bclosed = 0
+and podet.BCLOSED = 0
+and PO.Dtreqdate <= '#Date#'
+and isnull(podet.dtreceiveddate,'12/31/2099') <= Case when '#received#' = 'Yes' then '#Date#' else '12/31/2100' end
+and po.hmy > case when '#OpenPos#' = 'Yes' then 0 else 9999999999999999 end
+and a.irpttype not in (Case when '#Capital#' = 'No' then 1 else 99 end)
+Group by po.scode, p.scode, v.ucode, v.ulastname, podet.dtrantotalcost, podet.dtaxamount1, a.scode, podet.sdesc
+Having (Podet.dTranTotalCost - (sum(isnull(GD.Samount,0) + isnull(d.samount,0)))) > #Threshold#
+order by 1, 7, 2, 4
+//End Select

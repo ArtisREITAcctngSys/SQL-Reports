@@ -1,0 +1,92 @@
+//Select Header
+
+Select 
+'#FROMDATE#' ReportDate,
+DATEADD(month, DATEDIFF(month, 0, '#FromDate#'), 0) AS StartOfMonth,
+DateAdd(Month,0,'#FromDate#') Reportdate0,
+DATEADD(Month,1,'#FROMDATE#') ReportDate1,
+DATEADD(Month,2,'#FROMDATE#') ReportDate2,
+DATEADD(Month,3,'#FROMDATE#') ReportDate3,
+DATEADD(Month,4,'#FROMDATE#') ReportDate4,
+DATEADD(Month,5,'#FROMDATE#') ReportDate5,
+DATEADD(Month,6,'#FROMDATE#') ReportDate6,
+DATEADD(Month,7,'#FROMDATE#') ReportDate7,
+DATEADD(Month,8,'#FROMDATE#') ReportDate8,
+DATEADD(Month,9,'#FROMDATE#') ReportDate9,
+DATEADD(Month,10,'#FROMDATE#') ReportDate10,
+DATEADD(Month,11,'#FROMDATE#') ReportDate11,
+DATEADD(Month,12,'#FROMDATE#') ReportDate12,
+DATEADD(Month,13,'#FROMDATE#') ReportDate13,
+DATEADD(Month,14,'#FROMDATE#') ReportDate14,
+DATEADD(Month,15,'#FROMDATE#') ReportDate15,
+DATEADD(Month,16,'#FROMDATE#') ReportDate16,
+DATEADD(Month,17,'#FROMDATE#') ReportDate17,
+DATEADD(Month,18,'#FROMDATE#') ReportDate18,
+DATEADD(Month,19,'#FROMDATE#') ReportDate19,
+'#PostMonth#' PostMonth
+//End Select
+
+//Select PropertyList
+
+Select
+RTRIM(p.sCode) PropertyCode
+FROM Property p
+WHERE p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) AND itype = 3
+
+//End Select
+
+//Select FixedAsset
+Select 
+p.scode PropCode,
+FA.Sname Name,
+DG.Sname Type,
+DB.dDepreciationBasis OrigAmnt,
+DB.dtPlacedinService FromDT,
+(DB.dRecoveryPeriod*12) AmortMonths,
+CASE FA.istatus when 3 then (case isnull(DB.dtLastPostedEndPeriod,0) when 0 then db.dtplacedinservice else DB.dtLastPostedEndPeriod end) else 
+	CASE DB.dDepreciatedValue WHEN 0 then (case isnull(DB.dtLastPostedEndPeriod,0) when 0 then db.dtplacedinservice else DB.dtLastPostedEndPeriod end) else 
+	DateAdd(Month,(DB.dRecoveryPeriod*12),DB.dtPlacedinService) END END EndDate,
+Case when round((DB.drecoveryperiod*12),0) = 0 then 0 else DB.Ddepreciationbasis/round((DB.drecoveryperiod*12),0) end AmortPerMonth
+From MMASSET FA
+inner join property p on p.hmy = FA.Hppty
+inner join ICDEPRECIATIONGROUP dg on fa.hdeprgroup = dg.hmy
+Inner Join ICASSETDEPRECIATIONBOOK DB on FA.Hmy = DB.Hasset
+WHERE p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# ))
+and hdeprgroup = 75
+//End Select
+
+//Select CostIndc
+declare @stdt as datetime
+set @stdt = DATEADD(month, DATEDIFF(month, 0, '#FromDate#'), 0)
+select Distinct
+p.scode Property,
+T.slastname Lease,
+Case WHEN CI.hleaseassettype = 5 then 'Tenant Improvements'
+	WHEN CI.hleaseassettype = 10 then 'Tenant Incentive - Free Rent' 
+	WHEN CI.hleaseassettype = 4 then 'Leasing Commission' End as ASSETType,
+DB.dDepreciationBasis Original_amount,
+DB.dtPlacedinService DTStart,
+CASE DB.dDepreciatedValue WHEN 0 then (Case when DB.dtLastPostedEndPeriod is null then db.dtplacedinservice else dateadd(month,1,db.dtlastpostedendperiod)-1 end) else
+	CASE FA.Istatus when 3 then (Case when DB.dtLastPostedEndPeriod is null then db.dtplacedinservice else dateadd(month,1,db.dtlastpostedendperiod)-1 end)else DateAdd(Month,((DB.dRecoveryPeriod+.0001)*12),DB.dtPlacedinService)-1 END END DtEnd,
+ Case when DateAdd(Month,(DB.dRecoveryPeriod*12),DB.dtPlacedinService) < '#FROMDATE#' then 0 else 
+ 	case when db.dtlastpostedendperiod = @stdt then db.dlastpostedvalue else
+	Case when fa.istatus = 3 then 0 else
+		Case when ci.dtstart > '#FromDate#' then 0 else 
+				Case db.ddepreciatedvalue when 0 then 0 else
+					Case when dd.dtbeginperiod = @stdt then dd.damount else
+		DB.dDepreciationBasis/(db.drecoveryperiod*12) end end end end end end AmortPerMonth,
+CI.HMY as Ind
+from COMMCOSTINDUCEMENT CI
+Inner join mmasset FA on FA.HMY = CI.hasset
+Inner Join ICASSETDEPRECIATIONBOOK DB on FA.Hmy = DB.Hasset
+inner join tenant t on t.hmyperson = CI.htenant
+inner join property p on p.hmy = t.hproperty
+Left outer join icAssetDepreciationAdjustment DA on FA.hmy = DA.hAsset and DA.dtCreated >= DATEADD(month, DATEDIFF(month, 0, '#FromDate#'), 0)
+Left outer join icassetdepreciationdetail dd on FA.hmy = DD.hasset and dd.dtBeginPeriod = @stdt
+WHERE
+p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# ))
+and CI.hleaseassettype in (4, 5, 10)
+and db.ibook in (1, 6)
+
+order by 3, 5
+//End Select

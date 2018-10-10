@@ -1,0 +1,149 @@
+//Vista
+//Notes
+Copyright (c) 2005 by Yardi Systems
+	NAME
+		rs_Comm_Customer_Directory.SSRS.txt
+	
+	DESCRIPTION
+		Customer Directory (SQL Server)
+	
+	PLATFORM
+		Sql Server 2000
+	
+	DEPENDENCIES
+		Files - rx_Comm_Customer_Directory.rdlc
+	
+	NOTES
+	MODIFIED
+	01/31/2005 - Created
+	02/28/2006 - TR#70827 - NAICS Code changed to ICS Code. The Table CommNaics replaced with CommICS.
+	03/07/2006 - Removed ICS Code and table joins for select and filter (as per Sudha's email)
+	05/06/2006 - TR#72575 - International Conversion
+				Added params in Crystal section
+				Added table country_info to get country 
+	06/13/2007 - TR # 100868 - Phone labels if null displayed ' ' and corresponding changes in rpt file is made.
+	03/27/2008 - TR#114877 - Report is getting failed when group by is Parent.
+  07/24/2009 - TR#191594 - Cypress Merge.
+	06/02/2011-  TR#184308-Added  property filter to see customers by property or prop list.
+	06/03/2011-  TR#234457-Added one column to show Customer status in both cryastal and script file. 
+							 Filter for customer status also added to show Customers according to their status.
+//End Notes
+
+//Database
+SSRS rx_Comm_Customer_Directory.rdlc
+//End Database
+
+//Crystal
+Cryactive Y
+param Cust=select case when  count(hmyperson)= max(cnt) then '' when count(hmyperson)>1 then 'All Selected Customers' else max(ltrim(rtrim(cu.sname))) + ' (' + max(ltrim(rtrim(cu.scode))) + ')' end from customer cu , (select count(1) cnt from customer) cnt where 1=1 #condition1#
+param parent=select case when  count(hmyperson)= max(cnt) then '' when count(hmyperson)>1 then 'All Selected Parents' else max(ltrim(rtrim(cu.sname))) + ' (' + max(ltrim(rtrim(cu.scode))) + ')' end from customer cu , (select count(1) cnt from customer) cnt where 1=1 and scode = '#cparent#'
+param custTyp=select case when  count(hmy)= max(cnt) then '' when count(hmy)>1 then 'All Selected Customer Types' else max(ltrim(rtrim(cutp.sdesc))) + ' (' + max(ltrim(rtrim(cutp.scode))) + ')' end from customertype cutp , (select count(1) cnt from customertype) cnt where 1=1 #condition4#
+param grpby=#groupby# 
+//End Crystal
+
+//Title
+Commercial Customer Directory
+//End Title
+
+//Select
+Select 
+cu.scode         																																							custscode
+,cu.sname         																																							custdesc
+,isnull(cutyp.scode,' ')     																																		custtypecode
+,isnull(cst.scode,' ')																																					CustomerStatus
+,cutyp.sdesc             																																				custtypedesc
+,isnull((select ltrim(rtrim(cu1.scode)) from customer cu1 where cu1.hmyperson = cu.hparent),' ')custparent
+,ltrim(rtrim(co.sfirstname)) + ' ' + ltrim(rtrim(co.slastname))        													custname
+,isnull(co.saddr1,' ')                                                 													custaddr1
+,isnull(co.saddr2,' ')                                                 													custaddr2
+,isnull(co.saddr3,' ')                                                 													custaddr3
+,isnull(co.scity,' ') 																																					custcity
+,isnull(co.sstate,' ') 																																					custstate
+,isnull(co.szipcode,' ')  																																			custzip
+,isnull(ci.sdesc,' ')  																																					custCountry
+,isnull(ci.iaddrtype,2)																																					AddrType
+,isnull(co.sphonenum0,' ')  						       			CustPh0
+,(select isnull(text,' ') from label where type = 'PMLABEL' and subtype = 'PHONE LABEL' and element = 0) 	Ph0Label
+,isnull(co.sphonenum1,' ')  						       			CustPh1
+,(select isnull(text,' ') from label where type = 'PMLABEL' and subtype = 'PHONE LABEL' and element = 1) 	Ph1Label
+,isnull(co.sphonenum2,' ')  						       			CustPh2
+,(select isnull(text,' ') from label where type = 'PMLABEL' and subtype = 'PHONE LABEL' and element = 2) 	Ph2Label
+,isnull(co.sphonenum3,' ')  						       			CustPh3
+,(select isnull(text,' ') from label where type = 'PMLABEL' and subtype = 'PHONE LABEL' and element = 3) 	Ph3Label
+,isnull(co.sphonenum4,' ')  						       			CustPh4
+,(select isnull(text,' ') from label where type = 'PMLABEL' and subtype = 'PHONE LABEL' and element = 4) 	Ph4Label
+, case '#Groupby#' when 'Parent' then isnull((select cu2.scode from customer cu2 
+  					      where cu2.hmyperson = cu.hparent  and cu.hparent is not null
+					      union 
+					      select cu2.scode from customer cu2 
+					      where cu2.hmyperson = cu.hmyperson and cu.hparent is  null
+					      and exists(select * from customer cu3 
+					      		 where cu3.hparent = cu2.hmyperson))
+					      ,'N/A')
+                   when 'Customer Type' then isnull(cutyp.sdesc,'N/A')
+                   when 'Primary Contact' then isnull((ltrim(rtrim(co.sfirstname)) + ' ' + ltrim(rtrim(co.slastname))),'N/A')
+                   else ' '
+  end 												groupby
+, '#groupby#' 											titleline
+,isNull(parent.parentstatus,'')   parentstatus
+from
+customer cu
+left outer join tenant t on (t.hcustomer = cu.hmyperson)
+left outer join Property p on (t.hproperty = p.hmy)
+left join customerstatus cst on cu.hcustomerstatus=cst.hmy
+Left Join
+(
+	Select
+			parent.hmyperson hmyperson	
+			,cs.scode	parentstatus
+	From	
+				Customer parent
+				Left join customerstatus cs on (parent.hcustomerstatus = cs.hmy and  isnull(parent.hparent,0) = 0)
+)parent on (parent.hmyperson = cu.hparent)
+	left outer join customertype cutyp on cutyp.hmy = cu.hCustomertype
+	left outer join contactxref cx on (cu.hmyperson = cx.hrecord and cx.bprimary = 1 
+					and getdate() > isnull(cx.dtinactive,cx.dtdate))
+	left outer join contact co on (co.hmy = cx.hcontact)
+	left outer join country_info ci on co.hcountry = ci.hmy
+where 
+1=1
+#conditions#
+order by 26
+//End Select
+
+
+//Columns
+//Type,  Name, Hd1, Hd2,            Hd3,          Hd4, Show, Clr, Frmla, Drill,  Key, Width
+     T,      ,    ,    ,       Customer,         Code,    Y,    ,      ,     5,     ,   800,
+     T,      ,    ,    ,       Customer,         Name,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,               ,         Type,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,               ,         code,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,               ,       Parent,    Y,    ,      ,      ,     ,   800,
+     T,      ,    ,    ,Primary Contact,         Name,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,Primary Contact,      Address,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,Primary Contact,      Address,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,Primary Contact,      Address,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,Primary Contact,      Address,    Y,    ,      ,      ,     ,  2000,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               , Phone Number,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               ,      Groupby,    Y,    ,      ,      ,     ,  1500,
+     T,      ,    ,    ,               ,      Groupby,    Y,    ,      ,      ,     ,  1500,
+//End columns
+
+//Filter
+//	Type, DataTyp,			Name,			 Caption, Key, List,									 Val1, 	Val2,	Mandatory,	Multi-Type,	Title
+			 C, 			T,      chmy,		  Customer,    ,  478, cu.hmyperson = #chmy#,       ,          ,       			Y,   Y,
+			 C,       T,	 		Phmy,  	  Property,    ,   61, 			 P.hmy = #PhMy#,        ,          ,            Y,   Y, 
+			 0,       T,   cparent,   	  Parent,    ,  "select scode,sname from customer where hmyperson IN (select distinct hparent from customer where hparent <> 0)",cu.hparent IN (select hmyperson from customer where scode IN ('#cparent#')), , , Y, Y,
+			 0,       T,     ctype,Customer Type,    ,  "select scode, sdesc from customertype order by scode",cutyp.scode IN ('#ctype#'),     ,          ,       Y,   Y,
+ 			 M,		  	T,	 Status,Customer Status,	 ,"select scode from customerstatus", cst.scode = '#Status#',,,Y,
+			 L,       T,    Groupby,    Group By,    , ^Parent^Customer Type^Primary Contact,,,,,
+//end filter

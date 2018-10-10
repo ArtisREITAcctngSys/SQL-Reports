@@ -1,0 +1,89 @@
+//Vista
+//Notes 
+	rs_sql_MarwestRentRoll.txt
+	
+	DESCRIPTION
+		Marwest RentRoll - Lease Charges
+	
+	DEPENDENCIES
+		Files - rx_MarwestRentRoll_test.rdlc
+	
+	NOTES
+	MODIFIED
+	06/15/18 - Created by Mike Perner
+	08/16/18 - Modified by Leandra Fernandes: added new columns to display the Tenant's Charges
+	End Notes
+
+//Database
+	SSRS rx_MarwestRentRoll_test.rdlc
+//End Database
+
+//Title
+	Marwest Rent Roll
+//End Title
+
+//Select Header
+	select distinct
+		p.scode pcode,
+		p.saddr1 pname,
+		Convert(Varchar,'#asofdt#',101) asofdt
+	from property p
+	where 1=1
+		#condition1#
+//End Select
+
+//Select DataSet1
+	select 
+		p.scode pcode,
+		u.scode ucode,
+		ut.scode unittype,
+		u.DSQFT unitarea,
+		isnull(t.scode,'Vacant') tcode,
+		isnull((t.SFIRSTNAME + ' ' + t.slastname),'Vacant') tenantname,
+		u.SRENT marketrent,
+		t.srent actualrent,
+		isnull(t.SDEPOSIT0,0) deposit,
+		isnull(t.sdeposit1,0) + isnull(t.SDEPOSIT2,0) + isnull(t.SDEPOSIT3,0) otherdeposit,
+		t.dtmovein movein,
+		t.dtleaseto leaseexpiration,
+		t.dtmoveout moveoutdate,
+		case when isnull(b.hmy,0) = 0 then 'No' 
+			 else 'Yes' 
+			 end PAD,
+		t.hmyperson thmy,
+		isnull(ct.scode, 'Vacant') chargecode,
+		isnull(cr.dMonthlyAmount, 0) montlychargeamount
+	from property p
+		inner join unit u on u.hproperty = p.hmy
+		inner join unittype ut on ut.hmy = u.hunittype
+		left outer join tenant t on u.hmy = t.hunit 
+			and isnull(t.dtleaseto, '12/31/2100') >= '#asofdt#' 
+			and t.dtmovein <= '#asofdt#' 
+			and isnull(t.dtmoveout,'12/31/2100') >=case when '#moveout#' = 'Include' then '#asofdt#' else DATEADD(Month,1,'#asofdt#') end
+		left outer join achdata b on b.hperson = t.hmyperson
+		left outer join camrule cr on t.hmyperson = cr.htenant
+			and cr.dtfrom <= '#asofdt#'
+        		and isnull(cr.dtto, '12/31/2100') > '#asofdt#'
+		left outer join CHARGTYP ct on ct.HMY = cr.HCHARGECODE
+	where 1=1 
+	#condition1#
+	and case when  isnull(b.hmy,0) = 0 then 'No' else 'Yes' end 
+		like (case when '#PAD#' = 'Show All' then '%'  when '#PAD#' = 'Only PAD' then 'Yes' when '#PAD#'  = 'Exclude PAD' then 'No' end)
+	order by 2
+//End Select
+
+/Columns
+//Type,  Name, Hd1, Hd2, Hd3, Hd4, Show,  Clr, Frmla, Drill,  Key, Width
+//End columns
+
+//Filter
+//Type, DataTyp,       Name,          					 Caption, Key,                          List,                  Val1, Val2, Mandatory,Multi-Type,Title
+    C,       T,   hproperty,				            Property,    ,            			      61, p.hmy = '#hproperty#',     ,         Y,         Y,    Y,
+    0,       A,      asofdt,       					  As of Date,    ,                              ,                      ,     ,         Y,          ,    Y,
+    L,       T,         PAD,   					  Tenants on PAD,    , Show All^Only PAD^Exclude PAD,                      ,     ,          ,          ,    Y,
+	L,       T,     Moveout, Tenants Moving Out End of the Month,    , 			     Include^Exclude,                      ,     ,          ,          ,    Y,
+//end filter
+   
+//Version
+	Marwest Rent Roll&nbsp&nbsp&nbsp&nbsp<br>Authored by:&nbsp<a href="mailto:mperner@artisreit.com" target="new">Mike Perner</a><br>
+//END Version

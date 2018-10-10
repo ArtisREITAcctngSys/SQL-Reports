@@ -1,0 +1,36 @@
+//Select BOAPosi
+Select
+	replace (replace (b.sacctnum,' ',''),'-','') Account,
+	b.sbankABA ABA,
+	Cast (tr.uRef as INT) ChequeNum,
+	sum(d.sAmount) Amount,
+	convert(Varchar,tr.sDateOccurred,101) CheckDate,			
+	case when (tr.void = -1)
+	then 'C' else 'I'  end Action,
+	ps.uLastName Payee,
+	' ' Payee2
+From trans tr, property p, bank b, person ps, detail d
+Where 1=1
+	and tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   tr.hAccrualAcct = ps.hMy
+	and   tr.hPerson = b.hMy
+	and tr.manualcheck = 0
+	and tr.adjustment = 0
+	and tr.sdateoccurred Between  '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+	and tr.sotherdate1 is null
+Group By
+	b.sacctnum,
+	tr.uRef,
+	ps.uLastName,
+	tr.sDateOccurred,
+	tr.uPostDate,
+	tr.voided,
+	tr.void,
+	b.hmy,
+	b.sbankaba,
+	tr.sotherdate1
+order by 1, 2
+//End Select

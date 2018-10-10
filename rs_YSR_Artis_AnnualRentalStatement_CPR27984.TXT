@@ -1,0 +1,709 @@
+//Vista
+//Notes
+  Copyright (c) 2017 by Yardi Systems
+  NAME 	       : rs_Artis_AnnualRentalStatement_27984_SSRS.txt
+	CLIENT			 : Artis REIT
+	DESCRIPTION  : Converting the 'Annual Rental Statement' report from Crystal report type to YSR. 
+	DEPENDENCIES :
+  CREATED      : 08-February-2017 - CPR#27984 (Sophia Samuel)
+  Modification : Sophia Samuel (03/16/2017) - Modified $psf logic for management & formatted header section
+  							 Sophia Samuel (03/21/2017) - Modified $psf logic in order to calculate for rent steps & free rent 
+//End notes
+
+//Title
+Artis - YSR Annual Rental Statement
+//End Title
+
+//Version
+V 1.1 04/19/2017
+//End Version
+
+//Select No Crystal
+IF EXISTS (
+		SELECT *
+		FROM sys.Objects
+		WHERE object_id = OBJECT_ID('temp_27984')
+		)
+BEGIN
+	DROP TABLE temp_27984
+END
+
+SELECT *
+	INTO temp_27984
+	FROM (
+		SELECT mgm
+			,PropertyId
+			,saddr1
+			,slastname
+			,leaseid
+			,charge
+			,rate
+			,hmyperson
+			,month1
+			,month2
+			,month3
+			,month4
+			,month5
+			,month6
+			,month7
+			,month8
+			,month9
+			,month10
+			,month11
+			,month12
+			/*,taxrate1month1
+			,taxrate1month2
+			,taxrate1month3
+			,taxrate1month4
+			,taxrate1month5
+			,taxrate1month6
+			,taxrate1month7
+			,taxrate1month8
+			,taxrate1month9
+			,taxrate1month10
+			,taxrate1month11
+			,taxrate1month12
+			,taxrate2month1
+			,taxrate2month2
+			,taxrate2month3
+			,taxrate2month4
+			,taxrate2month5
+			,taxrate2month6
+			,taxrate2month7
+			,taxrate2month8
+			,taxrate2month9
+			,taxrate2month10
+			,taxrate2month11
+			,taxrate2month12*/
+			,startmonthdate
+			,unit
+FROM (
+	SELECT 0 mgm
+		,p.scode AS PropertyId
+		,p.saddr1 saddr1
+		,t.slastname slastname
+		,t.scode AS leaseid
+		,ch.sname charge
+		,t.hmyperson hmyperson
+		,
+		--avg(CASE 
+			--	WHEN cr.dcontractarea = 0
+				--	THEN 0.00000001
+				--ELSE (cr.dmonthlyamount * 12) / cr.dcontractarea
+				--END) AS rate
+							(sum(dbo.CalChargeAmt_CPR_5854('#startdate#', cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 1, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 2, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 3, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 4, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 5, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 6, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 7, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 8, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 9, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 10, '#startdate#'), cr.hmy))+sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 11, '#startdate#'), cr.hmy)))	/ (dbo.calcleasearea(hmyperson, '#startdate#')+.00001) as rate
+
+		,sum(dbo.CalChargeAmt_CPR_5854('#startdate#', cr.hmy)) AS month1
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 1, '#startdate#'), cr.hmy)) AS month2
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 2, '#startdate#'), cr.hmy)) AS month3
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 3, '#startdate#'), cr.hmy)) AS month4
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 4, '#startdate#'), cr.hmy)) AS month5
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 5, '#startdate#'), cr.hmy)) AS month6
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 6, '#startdate#'), cr.hmy)) AS month7
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 7, '#startdate#'), cr.hmy)) AS month8
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 8, '#startdate#'), cr.hmy)) AS month9
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 9, '#startdate#'), cr.hmy)) AS month10
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 10, '#startdate#'), cr.hmy)) AS month11
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 11, '#startdate#'), cr.hmy)) AS month12
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, '#startdate#')) taxrate1month1
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 1, '#startdate#'))) taxrate1month2
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 2, '#startdate#'))) taxrate1month3
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 3, '#startdate#'))) taxrate1month4
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 4, '#startdate#'))) taxrate1month5
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 5, '#startdate#'))) taxrate1month6
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 6, '#startdate#'))) taxrate1month7
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 7, '#startdate#'))) taxrate1month8
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 8, '#startdate#'))) taxrate1month9
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 9, '#startdate#'))) taxrate1month10
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 10, '#startdate#'))) taxrate1month11
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 11, '#startdate#'))) taxrate1month12
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, '#startdate#')) taxrate2month1
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 1, '#startdate#'))) taxrate2month2
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 2, '#startdate#'))) taxrate2month3
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 3, '#startdate#'))) taxrate2month4
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 4, '#startdate#'))) taxrate2month5
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 5, '#startdate#'))) taxrate2month6
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 6, '#startdate#'))) taxrate2month7
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 7, '#startdate#'))) taxrate2month8
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 8, '#startdate#'))) taxrate2month9
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 9, '#startdate#'))) taxrate2month10
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 10, '#startdate#'))) taxrate2month11
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 11, '#startdate#'))) taxrate2month12
+		,'#startdate#' AS startmonthdate
+		/*,CASE 
+			WHEN cr.hunit = 0
+				THEN dbo.commamendmentunits(ca.hmy)
+			ELSE u.scode
+			END AS unit*/
+		,dbo.commleaseunits(t.hmyperson, (
+				SELECT convert(VARCHAR, dbo.perf_eop(dateadd(mm, 11, CONVERT(DATE, '#startdate#')), 'm'), 101)
+				)) unit
+	FROM property p
+	INNER JOIN attributes a ON a.hprop = p.hmy
+	INNER JOIN tenant t ON t.hproperty = p.hmy
+	INNER JOIN commschedule cs ON cs.htenant = t.hmyperson
+	INNER JOIN camrule cr ON cr.hschedule = cs.hmy
+	INNER JOIN commamendments ca ON ca.hmy = cr.hamendment
+	LEFT OUTER JOIN unit u ON u.hmy = cr.hunit
+	INNER JOIN chargtyp ch ON cr.hchargecode = ch.hmy
+	LEFT OUTER JOIN intvattran vt ON cr.hTranType = vt.hMy
+	WHERE 1 = 1
+		AND t.dtleasefrom <= DATEADD(month, 11, '#startdate#')
+		AND isnull(t.dtmoveout, isnull(t.dtleaseto, '12/31/2050')) >= '#startdate#'
+		AND cr.dtfrom <= dateadd(month, 11, '#startdate#')
+		AND isnull(cr.dtto, '12/31/2050') >= '#startdate#'
+		#conditions#
+	GROUP BY p.scode
+		,p.saddr1
+		,t.slastname
+		,t.scode
+		,ch.sname
+		,t.hmyperson
+	) s
+WHERE 1 = 1
+	AND (
+		round((isnull(s.month1, 0)), 2) + round((isnull(s.month2, 0)), 2) + round((isnull(s.month3, 0)), 2) + round((isnull(s.month4, 0)), 2) + round((isnull(s.month5, 0)), 2) + round((isnull(s.month6, 0)), 2) + round((isnull(s.month7, 0)), 2) + round((isnull(s.month8, 0)), 2) + round((isnull(s.month9, 0)), 2) + round((isnull(s.month10, 0)), 2) + round((isnull(s.month11, 0)), 2) + round((isnull(s.month12, 0)), 2) + round((isnull(s.month1, 0)) * (isnull(isnull(s.taxrate1month1, 0), 0) / 100), 2) + round((isnull(s.month1, 0)) * (isnull(isnull(s.taxrate2month1, 0), 0) / 100), 2) + round((isnull(s.month2, 0)) * (isnull(isnull(s.taxrate1month2, 0), 0) / 100), 2) + round((isnull(s.month2, 0)) * (isnull(isnull(s.taxrate2month2, 0), 0) / 100), 2) + round((isnull(s.month3, 0)
+				) * (isnull(isnull(s.taxrate1month3, 0), 0) / 100), 2) + round((isnull(s.month3, 0)) * (isnull(isnull(s.taxrate2month3, 0), 0) / 100), 2) + round((isnull(s.month4, 0)) * (isnull(isnull(s.taxrate1month4, 0), 0) / 100), 2) + round((isnull(s.month4, 0)) * (isnull(isnull(s.taxrate2month4, 0), 0) / 100), 2) + round((isnull(s.month5, 0)) * (isnull(isnull(s.taxrate1month5, 0), 0) / 100), 2) + round((isnull(s.month5, 0)) * (isnull(isnull(s.taxrate2month5, 0), 0) / 100), 2) + round((isnull(s.month6, 0)) * (isnull(isnull(s.taxrate1month6, 0), 0) / 100), 2) + round((isnull(s.month6, 0)) * (isnull(isnull(s.taxrate2month6, 0), 0) / 100), 2) + round((isnull(s.month7, 0)) * (isnull(isnull(s.taxrate1month7, 0), 0) / 100), 2) + round((isnull(s.month7, 0)) * (isnull(isnull(s.taxrate2month7, 0), 0) / 100
+				), 2) + round((isnull(s.month8, 0)) * (isnull(isnull(s.taxrate1month8, 0), 0) / 100), 2) + round((isnull(s.month8, 0)) * (isnull(isnull(s.taxrate2month8, 0), 0) / 100), 2) + round((isnull(s.month9, 0)) * (isnull(isnull(s.taxrate1month9, 0), 0) / 100), 2) + round((isnull(s.month9, 0)) * (isnull(isnull(s.taxrate2month9, 0), 0) / 100), 2) + round((isnull(s.month10, 0)) * (isnull(isnull(s.taxrate1month10, 0), 0) / 100), 2) + round((isnull(s.month10, 0)) * (isnull(isnull(s.taxrate2month10, 0), 0) / 100), 2) + round((isnull(s.month11, 0)) * (isnull(isnull(s.taxrate1month11, 0), 0) / 100), 2) + round((isnull(s.month11, 0)) * (isnull(isnull(s.taxrate2month11, 0), 0) / 100), 2) + round((isnull(s.month12, 0)) * (isnull(isnull(s.taxrate1month12, 0), 0) / 100), 2) + round((isnull(s.month12, 0)
+				) * (isnull(isnull(s.taxrate2month12, 0), 0) / 100), 2)
+		) <> 0
+UNION
+Select 	mgm mgm
+	,PropertyId PropertyId
+	,saddr1 saddr1
+	,slastname slastname
+	,leaseid leaseid
+	,charge charge
+	/*,avg(rate) rate*/
+	,(month1+month2+month3+month4+month5+month6+month7+month8+month9+month10+month11+month12)/dbo.calcleasearea(hmyperson, '#startdate#')+.00001 rate
+	,hmyperson hmyperson
+	,month1 month1
+	,month2 month2
+	,month3 month3
+	,month4 month4
+	,month5 month5
+	,month6 month6
+	,month7 month7
+	,month8 month8
+	,month9 month9
+	,month10 month10
+	,month11 month11
+	,month12 month12
+	,startmonthdate startmonthdate
+	,unit unit
+from (SELECT mgm mgm
+	,PropertyId PropertyId
+	,saddr1 saddr1
+	,slastname slastname
+	,leaseid leaseid
+	,charge charge
+	/*,avg(rate) rate*/
+	,hmyperson hmyperson
+	,sum(month1) month1
+	,sum(month2) month2
+	,sum(month3) month3
+	,sum(month4) month4
+	,sum(month5) month5
+	,sum(month6) month6
+	,sum(month7) month7
+	,sum(month8) month8
+	,sum(month9) month9
+	,sum(month10) month10
+	,sum(month11) month11
+	,sum(month12) month12
+	/*,taxrate1month1
+	,taxrate1month2
+	,taxrate1month3
+	,taxrate1month4
+	,taxrate1month5
+	,taxrate1month6
+	,taxrate1month7
+	,taxrate1month8
+	,taxrate1month9
+	,taxrate1month10
+	,taxrate1month11
+	,taxrate1month12
+	,taxrate2month1
+	,taxrate2month2
+	,taxrate2month3
+	,taxrate2month4
+	,taxrate2month5
+	,taxrate2month6
+	,taxrate2month7
+	,taxrate2month8
+	,taxrate2month9
+	,taxrate2month10
+	,taxrate2month11
+	,taxrate2month12*/
+	,startmonthdate startmonthdate
+	,unit unit
+FROM (
+	SELECT 1 mgm
+		,p.scode AS PropertyId
+		,p.saddr1 saddr1
+		,t.slastname slastname
+		,t.scode AS leaseid
+		,t.hmyperson hmyperson
+		,'Management Fee' charge
+		/*,avg(CASE 
+				WHEN Isnull(dbo.calcleasearea(t.hmyperson, '#startdate#'), 0) = 0
+					THEN 0.00000000001
+				ELSE ((dbo.CalChargeAmt_CPR_5854(convert(DATETIME, REPLACE(CONVERT(VARCHAR, convert(DATETIME, '#startdate#', 101), 106), ' ', '-'), 106), cr.hmy) * dAdminPercent / 100) * 12) / dbo.calcleasearea(t.hmyperson, '#startdate#')+.00001
+				END) AS rate*/
+		,sum(dbo.CalChargeAmt_CPR_5854('#startdate#', cr.hmy) * dAdminPercent / 100) AS month1
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 1, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month2
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 2, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month3
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 3, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month4
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 4, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month5
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 5, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month6
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 6, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month7
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 7, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month8
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 8, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month9
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 9, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month10
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 10, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month11
+		,sum(dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 11, '#startdate#'), cr.hmy) * dAdminPercent / 100) AS month12
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, '#startdate#')) taxrate1month1
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 1, '#startdate#'))) taxrate1month2
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 2, '#startdate#'))) taxrate1month3
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 3, '#startdate#'))) taxrate1month4
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 4, '#startdate#'))) taxrate1month5
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 5, '#startdate#'))) taxrate1month6
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 6, '#startdate#'))) taxrate1month7
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 7, '#startdate#'))) taxrate1month8
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 8, '#startdate#'))) taxrate1month9
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 9, '#startdate#'))) taxrate1month10
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 10, '#startdate#'))) taxrate1month11
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 11, '#startdate#'))) taxrate1month12
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, '#startdate#')) taxrate2month1
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 1, '#startdate#'))) taxrate2month2
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 2, '#startdate#'))) taxrate2month3
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 3, '#startdate#'))) taxrate2month4
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 4, '#startdate#'))) taxrate2month5
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 5, '#startdate#'))) taxrate2month6
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 6, '#startdate#'))) taxrate2month7
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 7, '#startdate#'))) taxrate2month8
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 8, '#startdate#'))) taxrate2month9
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 9, '#startdate#'))) taxrate2month10
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 10, '#startdate#'))) taxrate2month11
+		,sum(dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 11, '#startdate#'))) taxrate2month12
+		,'#startdate#' AS startmonthdate
+		/*,CASE 
+			WHEN cr.hunit = 0
+				THEN dbo.commamendmentunits(ca.hmy)
+			ELSE u.scode
+			END AS unit*/
+		,dbo.commleaseunits(t.hmyperson, (
+				SELECT convert(VARCHAR, dbo.perf_eop(dateadd(mm, 11, CONVERT(DATE, '#startdate#')), 'm'), 101)
+				)) unit
+	FROM property p
+	INNER JOIN attributes a ON a.hprop = p.hmy
+	INNER JOIN tenant t ON t.hproperty = p.hmy
+	INNER JOIN commschedule cs ON cs.htenant = t.hmyperson
+	INNER JOIN camrule cr ON cr.hschedule = cs.hmy
+	INNER JOIN commamendments ca ON ca.hmy = cr.hamendment
+	LEFT OUTER JOIN unit u ON u.hmy = cr.hunit
+	INNER JOIN chargtyp ch ON cr.hChargeCode = ch.hmy
+	LEFT OUTER JOIN intvattran vt ON cr.hTranType = vt.hMy
+	WHERE 1 = 1
+		AND t.dtleasefrom <= DATEADD(month, 11, '#startdate#')
+		AND isnull(t.dtmoveout, isnull(t.dtleaseto, '12/31/2050')) >= '#startdate#'
+		AND cr.dtfrom <= dateadd(month, 11, '#startdate#')
+		AND isnull(cr.dtto, '12/31/2050') >= '#startdate#'
+		#conditions#
+	GROUP BY p.scode
+		,p.saddr1
+		,t.slastname
+		,t.scode
+		,ch.sname
+		,t.hmyperson
+	) t
+WHERE 1 = 1
+	AND (
+		round((isnull(t.month1, 0)), 2) + round((isnull(t.month2, 0)), 2) + round((isnull(t.month3, 0)), 2) + round((isnull(t.month4, 0)), 2) + round((isnull(t.month5, 0)), 2) + round((isnull(t.month6, 0)), 2) + round((isnull(t.month7, 0)), 2) + round((isnull(t.month8, 0)), 2) + round((isnull(t.month9, 0)), 2) + round((isnull(t.month10, 0)), 2) + round((isnull(t.month11, 0)), 2) + round((isnull(t.month12, 0)), 2) + round((isnull(t.month1, 0)) * (isnull(isnull(t.taxrate1month1, 0), 0) / 100), 2) + round((isnull(t.month1, 0)) * (isnull(isnull(t.taxrate2month1, 0), 0) / 100), 2) + round((isnull(t.month2, 0)) * (isnull(isnull(t.taxrate1month2, 0), 0) / 100), 2) + round((isnull(t.month2, 0)) * (isnull(isnull(t.taxrate2month2, 0), 0) / 100), 2) + round((isnull(t.month3, 0)
+				) * (isnull(isnull(t.taxrate1month3, 0), 0) / 100), 2) + round((isnull(t.month3, 0)) * (isnull(isnull(t.taxrate2month3, 0), 0) / 100), 2) + round((isnull(t.month4, 0)) * (isnull(isnull(t.taxrate1month4, 0), 0) / 100), 2) + round((isnull(t.month4, 0)) * (isnull(isnull(t.taxrate2month4, 0), 0) / 100), 2) + round((isnull(t.month5, 0)) * (isnull(isnull(t.taxrate1month5, 0), 0) / 100), 2) + round((isnull(t.month5, 0)) * (isnull(isnull(t.taxrate2month5, 0), 0) / 100), 2) + round((isnull(t.month6, 0)) * (isnull(isnull(t.taxrate1month6, 0), 0) / 100), 2) + round((isnull(t.month6, 0)) * (isnull(isnull(t.taxrate2month6, 0), 0) / 100), 2) + round((isnull(t.month7, 0)) * (isnull(isnull(t.taxrate1month7, 0), 0) / 100), 2) + round((isnull(t.month7, 0)) * (isnull(isnull(t.taxrate2month7, 0), 0) / 100
+				), 2) + round((isnull(t.month8, 0)) * (isnull(isnull(t.taxrate1month8, 0), 0) / 100), 2) + round((isnull(t.month8, 0)) * (isnull(isnull(t.taxrate2month8, 0), 0) / 100), 2) + round((isnull(t.month9, 0)) * (isnull(isnull(t.taxrate1month9, 0), 0) / 100), 2) + round((isnull(t.month9, 0)) * (isnull(isnull(t.taxrate2month9, 0), 0) / 100), 2) + round((isnull(t.month10, 0)) * (isnull(isnull(t.taxrate1month10, 0), 0) / 100), 2) + round((isnull(t.month10, 0)) * (isnull(isnull(t.taxrate2month10, 0), 0) / 100), 2) + round((isnull(t.month11, 0)) * (isnull(isnull(t.taxrate1month11, 0), 0) / 100), 2) + round((isnull(t.month11, 0)) * (isnull(isnull(t.taxrate2month11, 0), 0) / 100), 2) + round((isnull(t.month12, 0)) * (isnull(isnull(t.taxrate1month12, 0), 0) / 100), 2) + round((isnull(t.month12, 0)
+				) * (isnull(isnull(t.taxrate2month12, 0), 0) / 100), 2)
+		) <> 0
+GROUP BY mgm
+	,PropertyId
+	,saddr1
+	,slastname
+	,leaseid
+	,charge
+	,startmonthdate
+	,unit
+	,hmyperson
+	) mgmnt
+)x
+//End Select 
+
+//Select Header
+SELECT p.scode PropertyId
+	,ltrim(rtrim(p.scode)) + '  '+ p.saddr1 Propertyname
+	,t.scode leaseid
+	,ltrim(rtrim(t.scode)) + '  '+ t.slastname leasename
+	,'For the period commencing ' + '#startdate#' period
+	,convert(varchar,convert(datetime,'#startdate#'),101) startdate
+	from property p 
+	inner join tenant t on t.hproperty = p.hmy 
+	WHERE 1=1
+		#conditions#
+//End Select
+
+//Select annual_rental_charge
+SELECT mgm
+	,PropertyId
+	,saddr1
+	,slastname
+	,leaseid
+	,charge
+	,rate
+	,hmyperson
+	,month1
+	,month2
+	,month3
+	,month4
+	,month5
+	,month6
+	,month7
+	,month8
+	,month9
+	,month10
+	,month11
+	,month12
+	,startmonthdate
+	,unit
+	,(month1 * 12) /(dbo.CalcLeaseArea(HMYPERSON, '#startdate#')+.00001) area1
+	,(month2 * 12) /(dbo.CalcLeaseArea(hmyperson, dateadd(m, 1, '#startdate#'))+.00001) area2
+	,(month3 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 2, '#startdate#'))+.00001) area3
+	,(month4 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 3, '#startdate#'))+.00001) area4
+	,(month5 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 4, '#startdate#'))+.00001) area5
+	,(month6 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 5, '#startdate#'))+.00001) area6
+	,(month7 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 6, '#startdate#'))+.00001) area7
+	,(month8 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 7, '#startdate#'))+.00001) area8
+	,(month9 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 8, '#startdate#'))+.00001) area9
+	,(month10 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 9, '#startdate#'))+.00001) area10
+	,(month11 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 10, '#startdate#'))+.00001) area11
+	,(month12 * 12) / (dbo.CalcLeaseArea(hmyperson, dateadd(m, 11, '#startdate#'))+.00001) area12
+		FROM temp_27984 ts
+		GROUP BY mgm
+			,PropertyId
+			,saddr1
+			,slastname
+			,leaseid
+			,charge
+			,rate
+			,hmyperson
+			,month1
+			,month2
+			,month3
+			,month4
+			,month5
+			,month6
+			,month7
+			,month8
+			,month9
+			,month10
+			,month11
+			,month12
+			,startmonthdate
+			,unit
+//End Select
+
+//Select annual_statement
+SELECT PropertyId 
+	,leaseid
+	,sum(month1tax) month1tax
+	,sum(month2tax) month2tax
+	,sum(month3tax) month3tax
+	,sum(month4tax) month4tax
+	,sum(month5tax) month5tax
+	,sum(month6tax) month6tax
+	,sum(month7tax) month7tax
+	,sum(month8tax) month8tax
+	,sum(month9tax) month9tax
+	,sum(month10tax) month10tax
+	,sum(month11tax) month11tax
+	,sum(month12tax) month12tax
+FROM (
+SELECT isnull(t.mgm, s.mgm) AS mgmnt
+	,isnull(t.PropertyId , s.PropertyId ) AS PropertyId 
+	,isnull(t.leaseid, s.leaseid) AS leaseid
+	,isnull((round(sum(isnull(t.month1, s.month1)) * (isnull(t.taxrate1month1, s.taxrate1month1) / 100), 2) + round(sum(isnull(t.month1, s.month1)) * (isnull(t.taxrate2month1, s.taxrate2month1) / 100), 2)), 0) AS month1tax
+	,isnull((round(sum(isnull(t.month2, s.month2)) * (isnull(t.taxrate1month2, s.taxrate1month2) / 100), 2) + round(sum(isnull(t.month2, s.month2)) * (isnull(t.taxrate2month2, s.taxrate2month2) / 100), 2)), 0) AS month2tax
+	,isnull((round(sum(isnull(t.month3, s.month3)) * (isnull(t.taxrate1month3, s.taxrate1month3) / 100), 2) + round(sum(isnull(t.month3, s.month3)) * (isnull(t.taxrate2month3, s.taxrate2month3) / 100), 2)), 0) AS month3tax
+	,isnull((round(sum(isnull(t.month4, s.month4)) * (isnull(t.taxrate1month4, s.taxrate1month4) / 100), 2) + round(sum(isnull(t.month4, s.month4)) * (isnull(t.taxrate2month4, s.taxrate2month4) / 100), 2)), 0) AS month4tax
+	,isnull((round(sum(isnull(t.month5, s.month5)) * (isnull(t.taxrate1month5, s.taxrate1month5) / 100), 2) + round(sum(isnull(t.month5, s.month5)) * (isnull(t.taxrate2month5, s.taxrate2month5) / 100), 2)), 0) AS month5tax
+	,isnull((round(sum(isnull(t.month6, s.month6)) * (isnull(t.taxrate1month6, s.taxrate1month6) / 100), 2) + round(sum(isnull(t.month6, s.month6)) * (isnull(t.taxrate2month6, s.taxrate2month6) / 100), 2)), 0) AS month6tax
+	,isnull((round(sum(isnull(t.month7, s.month7)) * (isnull(t.taxrate1month7, s.taxrate1month7) / 100), 2) + round(sum(isnull(t.month7, s.month7)) * (isnull(t.taxrate2month7, s.taxrate2month7) / 100), 2)), 0) AS month7tax
+	,isnull((round(sum(isnull(t.month8, s.month8)) * (isnull(t.taxrate1month8, s.taxrate1month8) / 100), 2) + round(sum(isnull(t.month8, s.month8)) * (isnull(t.taxrate2month8, s.taxrate2month8) / 100), 2)), 0) AS month8tax
+	,isnull((round(sum(isnull(t.month9, s.month9)) * (isnull(t.taxrate1month9, s.taxrate1month9) / 100), 2) + round(sum(isnull(t.month9, s.month9)) * (isnull(t.taxrate2month9, s.taxrate2month9) / 100), 2)), 0) AS month9tax
+	,isnull((round(sum(isnull(t.month10, s.month10)) * (isnull(t.taxrate1month10, s.taxrate1month10) / 100), 2) + round(sum(isnull(t.month10, s.month10)) * (isnull(t.taxrate2month10, s.taxrate2month10) / 100), 2)), 0) AS month10tax
+	,isnull((round(sum(isnull(t.month11, s.month11)) * (isnull(t.taxrate1month11, s.taxrate1month11) / 100), 2) + round(sum(isnull(t.month11, s.month11)) * (isnull(t.taxrate2month11, s.taxrate2month11) / 100), 2)), 0) AS month11tax
+	,isnull((round(sum(isnull(t.month12, s.month12)) * (isnull(t.taxrate1month12, s.taxrate1month12) / 100), 2) + round(sum(isnull(t.month12, s.month12)) * (isnull(t.taxrate2month12, s.taxrate2month12) / 100), 2)), 0) AS month12tax
+FROM (
+	SELECT CASE 
+			WHEN ch.SCODE LIKE 'mgmtf' /*Case-1534508*/
+				THEN 1
+			ELSE 0
+			END mgm
+		,p.scode AS PropertyId 
+		,p.saddr1
+		,t.slastname
+		,t.scode AS leaseid
+		,ch.sname
+		,CASE 
+			WHEN cr.dcontractarea = 0
+				THEN 0
+			ELSE (cr.dmonthlyamount * 12) / cr.dcontractarea+.000001
+			END AS rate
+		,dbo.CalChargeAmt_CPR_5854('#startdate#', cr.hmy) AS month1
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 1, '#startdate#'), cr.hmy) AS month2
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 2, '#startdate#'), cr.hmy) AS month3
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 3, '#startdate#'), cr.hmy) AS month4
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 4, '#startdate#'), cr.hmy) AS month5
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 5, '#startdate#'), cr.hmy) AS month6
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 6, '#startdate#'), cr.hmy) AS month7
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 7, '#startdate#'), cr.hmy) AS month8
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 8, '#startdate#'), cr.hmy) AS month9
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 9, '#startdate#'), cr.hmy) AS month10
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 10,'#startdate#'), cr.hmy) AS month11
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 11,'#startdate#'), cr.hmy) AS month12
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, '#startdate#') taxrate1month1
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 1, '#startdate#')) taxrate1month2
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 2, '#startdate#')) taxrate1month3
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 3, '#startdate#')) taxrate1month4
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 4, '#startdate#')) taxrate1month5
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 5, '#startdate#')) taxrate1month6
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 6, '#startdate#')) taxrate1month7
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 7, '#startdate#')) taxrate1month8
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 8, '#startdate#')) taxrate1month9
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 9, '#startdate#')) taxrate1month10
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 10,'#startdate#')) taxrate1month11
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 11,'#startdate#')) taxrate1month12
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, '#startdate#') taxrate2month1
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 1, '#startdate#')) taxrate2month2
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 2, '#startdate#')) taxrate2month3
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 3, '#startdate#')) taxrate2month4
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 4, '#startdate#')) taxrate2month5
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 5, '#startdate#')) taxrate2month6
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 6, '#startdate#')) taxrate2month7
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 7, '#startdate#')) taxrate2month8
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 8, '#startdate#')) taxrate2month9
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 9, '#startdate#')) taxrate2month10
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 10,'#startdate#')) taxrate2month11
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 11,'#startdate#')) taxrate2month12
+		,'#startdate#' AS startmonthdate
+		,CASE 
+			WHEN cr.hunit = 0
+				THEN dbo.commamendmentunits(ca.hmy)
+			ELSE u.scode
+			END AS unit
+	FROM property p
+	INNER JOIN attributes a ON a.hprop = p.hmy
+	INNER JOIN tenant t ON t.hproperty = p.hmy
+	INNER JOIN commschedule cs ON cs.htenant = t.hmyperson
+	INNER JOIN camrule cr ON cr.hschedule = cs.hmy
+	INNER JOIN commamendments ca ON ca.hmy = cr.hamendment
+	LEFT OUTER JOIN unit u ON u.hmy = cr.hunit
+	INNER JOIN chargtyp ch ON cr.hchargecode = ch.hmy
+	LEFT OUTER JOIN intvattran vt ON cr.hTranType = vt.hMy
+	WHERE 1 = 1
+		AND t.dtleasefrom <= DATEADD(month, 11, '#startdate#')
+		AND isnull(t.dtmoveout, isnull(t.dtleaseto, '12/31/2050')) >= '#startdate#'
+		AND cr.dtfrom <= dateadd(month, 11, '#startdate#')
+		AND isnull(cr.dtto, '12/31/2050') >= '#startdate#' 
+		#conditions#
+	) s
+FULL OUTER JOIN (
+	SELECT 1 mgm
+		,p.scode AS PropertyId 
+		,p.saddr1
+		,t.slastname
+		,t.scode AS leaseid
+		,ch.sname + ' ' + 'Management Fee' sname
+		,CASE 
+			WHEN cr.dcontractarea = 0
+				THEN 0
+			ELSE ((dbo.CalChargeAmt_CPR_5854(convert(DATETIME,REPLACE(CONVERT(varchar, convert(datetime,'#startdate#',101), 106),' ','-'), 106), cr.hmy) * dAdminPercent / 100) * 12) / cr.dcontractarea+.00001
+			END AS rate
+		,dbo.CalChargeAmt_CPR_5854('#startdate#', cr.hmy) * dAdminPercent / 100 AS month1
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 1, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month2
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 2, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month3
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 3, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month4
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 4, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month5
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 5, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month6
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 6, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month7
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 7, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month8
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 8, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month9
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 9, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month10
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 10, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month11
+		,dbo.CalChargeAmt_CPR_5854(dateadd(MONTH, 11, '#startdate#'), cr.hmy) * dAdminPercent / 100 AS month12
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, '#startdate#') taxrate1month1
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 1, '#startdate#')) taxrate1month2
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 2, '#startdate#')) taxrate1month3
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 3, '#startdate#')) taxrate1month4
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 4, '#startdate#')) taxrate1month5
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 5, '#startdate#')) taxrate1month6
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 6, '#startdate#')) taxrate1month7
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 7, '#startdate#')) taxrate1month8
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 8, '#startdate#')) taxrate1month9
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 9, '#startdate#')) taxrate1month10
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 10,'#startdate#')) taxrate1month11
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 1, dateadd(MONTH, 11,'#startdate#')) taxrate1month12
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, '#startdate#') taxrate2month1
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 1, '#startdate#')) taxrate2month2
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 2, '#startdate#')) taxrate2month3
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 3, '#startdate#')) taxrate2month4
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 4, '#startdate#')) taxrate2month5
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 5, '#startdate#')) taxrate2month6
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 6, '#startdate#')) taxrate2month7
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 7, '#startdate#')) taxrate2month8
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 8, '#startdate#')) taxrate2month9
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 9, '#startdate#')) taxrate2month10
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 10, '#startdate#')) taxrate2month11
+		,dbo.Int61CalcCamruleVatRate_1342513(cr.hmy, 2, dateadd(MONTH, 11, '#startdate#')) taxrate2month12
+		,'#startdate#' AS startmonthdate
+		,CASE 
+			WHEN cr.hunit = 0
+				THEN dbo.commamendmentunits(ca.hmy)
+			ELSE u.scode
+			END AS unit
+	FROM property p
+	INNER JOIN attributes a ON a.hprop = p.hmy
+	INNER JOIN tenant t ON t.hproperty = p.hmy
+	INNER JOIN commschedule cs ON cs.htenant = t.hmyperson
+	INNER JOIN camrule cr ON cr.hschedule = cs.hmy
+	INNER JOIN commamendments ca ON ca.hmy = cr.hamendment
+	LEFT OUTER JOIN unit u ON u.hmy = cr.hunit
+	INNER JOIN chargtyp ch ON cr.hChargeCode = ch.hmy
+	LEFT OUTER JOIN intvattran vt ON cr.hTranType = vt.hMy
+	WHERE 1 = 1
+		AND t.dtleasefrom <= DATEADD(month, 11, '#startdate#')
+		AND isnull(t.dtmoveout, isnull(t.dtleaseto, '12/31/2050')) >= '#startdate#'
+		AND cr.dtfrom <= dateadd(month, 11, '#startdate#')
+		AND isnull(cr.dtto, '12/31/2050') >= '#startdate#' #conditions#
+	) t ON s.PropertyId  = t.PropertyId 
+	AND s.leaseid = t.leaseid
+	AND s.sname = t.sname
+	AND s.unit = t.unit
+GROUP BY isnull(t.mgm, s.mgm)
+	,isnull(t.PropertyId , s.PropertyId )
+	,isnull(t.saddr1, s.saddr1)
+	,isnull(t.leaseid, s.leaseid)
+	,isnull(t.slastname, s.slastname)
+	,isnull(s.sname, t.sname)
+	,t.startmonthdate
+	,s.startmonthdate
+	,t.rate
+	,s.rate
+	,s.unit
+	,t.unit
+	,t.taxrate1month1
+	,t.taxrate1month2
+	,t.taxrate1month3
+	,t.taxrate1month4
+	,t.taxrate1month5
+	,t.taxrate1month6
+	,t.taxrate1month7
+	,t.taxrate1month8
+	,t.taxrate1month9
+	,t.taxrate1month10
+	,t.taxrate1month11
+	,t.taxrate1month12
+	,s.taxrate1month1
+	,s.taxrate1month2
+	,s.taxrate1month3
+	,s.taxrate1month4
+	,s.taxrate1month5
+	,s.taxrate1month6
+	,s.taxrate1month7
+	,s.taxrate1month8
+	,s.taxrate1month9
+	,s.taxrate1month10
+	,s.taxrate1month11
+	,s.taxrate1month12
+	,t.taxrate2month1
+	,t.taxrate2month2
+	,t.taxrate2month3
+	,t.taxrate2month4
+	,t.taxrate2month5
+	,t.taxrate2month6
+	,t.taxrate2month7
+	,t.taxrate2month8
+	,t.taxrate2month9
+	,t.taxrate2month10
+	,t.taxrate2month11
+	,t.taxrate2month12
+	,s.taxrate2month1
+	,s.taxrate2month2
+	,s.taxrate2month3
+	,s.taxrate2month4
+	,s.taxrate2month5
+	,s.taxrate2month6
+	,s.taxrate2month7
+	,s.taxrate2month8
+	,s.taxrate2month9
+	,s.taxrate2month10
+	,s.taxrate2month11
+	,s.taxrate2month12
+/*HAVING (
+		round(sum(isnull(t.month1, s.month1)), 2) + /*Case-1534508*/
+		round(sum(isnull(t.month2, s.month2)), 2) + round(sum(isnull(t.month3, s.month3)), 2) + round(sum(isnull(t.month4, s.month4)), 2) + round(sum(isnull(t.month5, s.month5)), 2) + round(sum(isnull(t.month6, s.month6)), 2) + round(sum(isnull(t.month7, s.month7)), 2) + round(sum(isnull(t.month8, s.month8)), 2) + round(sum(isnull(t.month9, s.month9)), 2) + round(sum(isnull(t.month10, s.month10)), 2) + round(sum(isnull(t.month11, s.month11)), 2) + round(sum(isnull(t.month12, s.month12)), 2) + round(sum(isnull(t.month1, s.month1)) * (isnull(isnull(t.taxrate1month1, s.taxrate1month1), 0) / 100), 2) + round(sum(isnull(t.month1, s.month1)) * (isnull(isnull(t.taxrate2month1, s.taxrate2month1), 0) / 100), 2) + round(sum(isnull(t.month2, s.month2)) * (isnull(isnull(t.taxrate1month2, s.taxrate1month2), 0) / 100), 2) + round(sum(isnull(t.month2, s.month2)) * (isnull(isnull(t.taxrate2month2, s.taxrate2month2), 0) / 100), 2) + round(sum(isnull(t.month3, s.month3)) * (isnull(isnull(t.taxrate1month3, s.taxrate1month3), 0) / 100
+				), 2) + round(sum(isnull(t.month3, s.month3)) * (isnull(isnull(t.taxrate2month3, s.taxrate2month3), 0) / 100), 2) + round(sum(isnull(t.month4, s.month4)) * (isnull(isnull(t.taxrate1month4, s.taxrate1month4), 0) / 100), 2) + round(sum(isnull(t.month4, s.month4)) * (isnull(isnull(t.taxrate2month4, s.taxrate2month4), 0) / 100), 2) + round(sum(isnull(t.month5, s.month5)) * (isnull(isnull(t.taxrate1month5, s.taxrate1month5), 0) / 100), 2) + round(sum(isnull(t.month5, s.month5)) * (isnull(isnull(t.taxrate2month5, s.taxrate2month5), 0) / 100), 2) + round(sum(isnull(t.month6, s.month6)) * (isnull(isnull(t.taxrate1month6, s.taxrate1month6), 0) / 100), 2) + round(sum(isnull(t.month6, s.month6)) * (isnull(isnull(t.taxrate2month6, s.taxrate2month6), 0) / 100), 2) + round(sum(isnull(t.month7, s.month7)) * (isnull(isnull(t.taxrate1month7, s.taxrate1month7), 0) / 100), 2) + round(sum(isnull(t.month7, s.month7)) * (isnull(isnull(t.taxrate2month7, s.taxrate2month7), 0) / 100
+				), 2) + round(sum(isnull(t.month8, s.month8)) * (isnull(isnull(t.taxrate1month8, s.taxrate1month8), 0) / 100), 2) + round(sum(isnull(t.month8, s.month8)) * (isnull(isnull(t.taxrate2month8, s.taxrate2month8), 0) / 100), 2) + round(sum(isnull(t.month9, s.month9)) * (isnull(isnull(t.taxrate1month9, s.taxrate1month9), 0) / 100), 2) + round(sum(isnull(t.month9, s.month9)) * (isnull(isnull(t.taxrate2month9, s.taxrate2month9), 0) / 100), 2) + round(sum(isnull(t.month10, s.month10)) * (isnull(isnull(t.taxrate1month10, s.taxrate1month10), 0) / 100), 2) + round(sum(isnull(t.month10, s.month10)) * (isnull(isnull(t.taxrate2month10, s.taxrate2month10), 0) / 100), 2) + round(sum(isnull(t.month11, s.month11)) * (isnull(isnull(t.taxrate1month11, s.taxrate1month11), 0) / 100), 2) + round(sum(isnull(t.month11, s.month11)) * (isnull(isnull(t.taxrate2month11, s.taxrate2month11), 0) / 100), 2) + round(sum(isnull(t.month12, s.month12)) * (isnull(isnull(t.taxrate1month12, s.taxrate1month12), 0) / 100
+				), 2) + round(sum(isnull(t.month12, s.month12)) * (isnull(isnull(t.taxrate2month12, s.taxrate2month12), 0) / 100), 2)
+		) <> 0*/
+	HAVING (
+			round(sum(isnull(t.month1, isnull(s.month1, 0))), 2) + /*Case-1534508*/
+			round(sum(isnull(t.month2, isnull(s.month2, 0))), 2) + 
+			round(sum(isnull(t.month3, isnull(s.month3, 0))), 2) + 
+			round(sum(isnull(t.month4, isnull(s.month4, 0))), 2) + 
+			round(sum(isnull(t.month5, isnull(s.month5, 0))), 2) + 
+			round(sum(isnull(t.month6, isnull(s.month6, 0))), 2) + 
+			round(sum(isnull(t.month7, isnull(s.month7, 0))), 2) + 
+			round(sum(isnull(t.month8, isnull(s.month8, 0))), 2) + 
+			round(sum(isnull(t.month9, isnull(s.month9, 0))), 2) + 
+			round(sum(isnull(t.month10, isnull(s.month10, 0))), 2) + 
+			round(sum(isnull(t.month11, isnull(s.month11, 0))), 2) + 
+			round(sum(isnull(t.month12, isnull(s.month12, 0))), 2) + 
+			round(sum(isnull(t.month1, isnull(s.month1, 0))) * (isnull(isnull(t.taxrate1month1, isnull(s.taxrate1month1, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month1, isnull(s.month1, 0))) * (isnull(isnull(t.taxrate2month1, isnull(s.taxrate2month1, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month2, isnull(s.month2, 0))) * (isnull(isnull(t.taxrate1month2, isnull(s.taxrate1month2, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month2, isnull(s.month2, 0))) * (isnull(isnull(t.taxrate2month2, isnull(s.taxrate2month2, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month3, isnull(s.month3, 0))) * (isnull(isnull(t.taxrate1month3, isnull(s.taxrate1month3, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month3, isnull(s.month3, 0))) * (isnull(isnull(t.taxrate2month3, isnull(s.taxrate2month3, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month4, isnull(s.month4, 0))) * (isnull(isnull(t.taxrate1month4, isnull(s.taxrate1month4, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month4, isnull(s.month4, 0))) * (isnull(isnull(t.taxrate2month4, isnull(s.taxrate2month4, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month5, isnull(s.month5, 0))) * (isnull(isnull(t.taxrate1month5, isnull(s.taxrate1month5, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month5, isnull(s.month5, 0))) * (isnull(isnull(t.taxrate2month5, isnull(s.taxrate2month5, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month6, isnull(s.month6, 0))) * (isnull(isnull(t.taxrate1month6, isnull(s.taxrate1month6, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month6, isnull(s.month6, 0))) * (isnull(isnull(t.taxrate2month6, isnull(s.taxrate2month6, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month7, isnull(s.month7, 0))) * (isnull(isnull(t.taxrate1month7, isnull(s.taxrate1month7, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month7, isnull(s.month7, 0))) * (isnull(isnull(t.taxrate2month7, isnull(s.taxrate2month7, 0)), 0) / 100), 2) +
+			round(sum(isnull(t.month8, isnull(s.month8, 0))) * (isnull(isnull(t.taxrate1month8, isnull(s.taxrate1month8, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month8, isnull(s.month8, 0))) * (isnull(isnull(t.taxrate2month8, isnull(s.taxrate2month8, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month9, isnull(s.month9, 0))) * (isnull(isnull(t.taxrate1month9, isnull(s.taxrate1month9, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month9, isnull(s.month9, 0))) * (isnull(isnull(t.taxrate2month9, isnull(s.taxrate2month9, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month10, isnull(s.month10, 0))) * (isnull(isnull(t.taxrate1month10, isnull(s.taxrate1month10, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month10, isnull(s.month10, 0))) * (isnull(isnull(t.taxrate2month10, isnull(s.taxrate2month10, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month11, isnull(s.month11, 0))) * (isnull(isnull(t.taxrate1month11, isnull(s.taxrate1month11, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month11, isnull(s.month11, 0))) * (isnull(isnull(t.taxrate2month11, isnull(s.taxrate2month11, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month12, isnull(s.month12, 0))) * (isnull(isnull(t.taxrate1month12, isnull(s.taxrate1month12, 0)), 0) / 100), 2) + 
+			round(sum(isnull(t.month12, isnull(s.month12, 0))) * (isnull(isnull(t.taxrate2month12, isnull(s.taxrate2month12, 0)), 0) / 100), 2)
+			) <> 0	
+	) a
+GROUP BY PropertyId
+		,leaseid
+//End Select
+
+//Select No Crystal After
+IF EXISTS (
+		SELECT *
+		FROM sys.Objects
+		WHERE object_id = OBJECT_ID('temp_27984')
+		)
+BEGIN
+	DROP TABLE temp_27984
+END
+//END SELECT

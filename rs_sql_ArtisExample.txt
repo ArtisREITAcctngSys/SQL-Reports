@@ -1,0 +1,49 @@
+//Vista
+//Notes
+Example report
+//End Notes
+//Database
+SSRS rx_sql_ArtisExample.rdlc
+//End Database
+//Title
+Artis Example Report
+//End Title
+
+//Select Dataset1
+select p.scode PCODE,
+p.saddr1 PName,
+p.SCITY CITY,
+p.sstate Province,
+a.subgroup1 Metro,
+a.subgroup3 assetclass,
+a.subgroup6 PropertyManager
+from property p
+inner join attributes a on a.hprop = p.hmy
+where 1=1
+#conditions#
+and p.itype = 3
+order by 1
+//End
+
+//Columns
+//Type  Name    Head1   Head2   Head3           Head4                   Show    Color   Formula Drill  Key   Width  Total
+T    ,"PCODE","Property Code" ,"" ,"" ,"" ,Y  ,  , ,  3, ,1000 ,N  ,,,,,,,,
+T    ,"Pname","Property Name" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+T    ,"City","City" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+T    ,"Province","Province" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+T    ,"Metro","Metro Area" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+T    ,"assetclass","Asset Class" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+T    ,"PropertyManager","Property Manager" ,"" ,"" ,"" ,Y  ,  , ,   , ,1000 ,N  ,,,,,,,,
+//End Columns
+
+//Filter
+//	Type, DataTyp,			Name,			 Caption, Key, List,									 Val1, 	Val2,	Mandatory,	Multi-Type,	Title
+C    ,T    ,"Pcode"    ,"Property"    ,  ,"61"    ,"p.hMy = #Pcode# "    ,     ,Y    ,   ,Y
+L    ,T   ,"Question" ,"Yes or No?" , ,   Yes^No           ,  , , , , , , 
+//End Filter
+//Version
+Artis Example Reportt&nbsp&nbsp&nbsp&nbsp<br>Authored by:&nbsp<a href="mailto:mperner@artisreit.com" target="new">Mike Perner</a><br>
+//END Version
+
+   
+

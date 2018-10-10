@@ -1,0 +1,12 @@
+//Select Example
+Select p.hmy phmy,
+p.scode propcode,
+p.saddr1 pname,
+p.scity city,
+p.sstate state
+from property p
+where 1=1
+and p.hmy in (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #Prp# ))
+order by 2
+//end select
+

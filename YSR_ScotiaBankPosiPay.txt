@@ -1,0 +1,139 @@
+//Select ScotiaPP
+Select Distinct
+	rtrim(B.scode)+'A' as ValA,
+	'A'+'3000740660'+substring(b.smicrline,11,5)+'0002'+'      '+replace(substring(b.smicrline,21,9),'-','')+'CAD'+'CA'+'                              '+convert(Varchar,Getdate(),112)+'ISSUED  '
+	+'        '+'BNS       ' as Valb
+
+Into #TempTableTest1
+
+from trans tr, bank b, property p, person ps, detail d, achdata a
+Where 1=1
+	and tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   ps.hmy = case when tr.hremittancevendor = 0 then tr.hAccrualAcct else tr.hremittancevendor end
+	and   tr.hPerson = b.hMy
+	and tr.manualcheck = 0
+	and tr.adjustment = 0
+	and tr.sdateoccurred Between  '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+	and tr.sotherdate1 is null
+	and a.hbank = b.hmy
+
+select distinct 
+	rtrim(B.scode)+'J' as ValA,
+	'J'+substring(b.smicrline,11,5)+'0002'+'      '+replace(substring(b.smicrline,21,9),'-','')+right(('00000000000000'+ltrim(tr.uref)),14)
+	+right('0000000000'+ replace(Replace(tr.stotalamount,'.',''),'-',''),10)+left(case when (tr.void = -1)
+	then 'VOID' else 'ISSUED'  end+'            ',12)+replace(convert(Varchar,tr.sDateOccurred,112),'/','')
+	+'                                                                                          CAD' as Valb,
+	B.scode as valc,
+	tr.stotalamount as vald
+	into #temptabletest2
+
+from trans tr, property p, bank b, person ps, detail d
+Where 1=1
+	and tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   ps.hmy = case when tr.hremittancevendor = 0 then tr.hAccrualAcct else tr.hremittancevendor end
+	and   tr.hPerson = b.hMy
+	and tr.manualcheck = 0
+	and tr.adjustment = 0
+	and tr.sdateoccurred Between  '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+	and tr.sotherdate1 is null
+	and tr.void not in (-1)
+Group By
+	b.smicrline,
+	b.scode,
+	tr.uRef,
+	tr.stotalamount,
+	ps.uLastName,
+	tr.sDateOccurred,
+	tr.uPostDate,
+	tr.voided,
+	tr.void,
+	b.hmy
+order by 1 
+
+
+insert into #TempTableTest1 (Vala, Valb)
+	select distinct 
+	rtrim(B.scode)+'J' as ValA,
+	'J'+substring(b.smicrline,11,5)+'0002'+'      '+replace(substring(b.smicrline,21,9),'-','')+right(('00000000000000'+ltrim(tr.uref)),14)
+	+right('0000000000'+ replace(Replace(tr.stotalamount,'.',''),'-',''),10)+left(case when (tr.void = -1)
+	then 'VOID' else 'ISSUED'  end+'            ',12)+replace(convert(Varchar,tr.sDateOccurred,112),'/','')
+	+'                                                                                          CAD'
+	+left((replace(ps.ulastname,',','')+'                                                            '),60) 
+	+left((replace(ps.saddr1,',','')+'                                                            '),60)
+	+left((replace(ps.saddr2,',','')+'                                                            '),60)
+	+left((ps.scity+' '+ps.sstate+' '+ps.szipcode+'                                               '),60)
+	as Valb
+from trans tr, property p, bank b, person ps, detail d
+Where 1=1
+	and tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   ps.hmy = case when tr.hremittancevendor = 0 then tr.hAccrualAcct else tr.hremittancevendor end
+	and   tr.hPerson = b.hMy
+	and tr.manualcheck = 0
+	and tr.adjustment = 0
+	and tr.sdateoccurred Between  '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+	and tr.sotherdate1 is null
+	and tr.void not in (-1)
+Group By
+	b.smicrline,
+	b.scode,
+	tr.uRef,
+	tr.stotalamount,
+	ps.uLastName,
+    ps.saddr1,
+    ps.saddr2,
+    ps.scity,
+    ps.sstate,
+    ps.szipcode,    
+	tr.sDateOccurred,
+	tr.uPostDate,
+	tr.voided,
+	tr.void,
+	b.hmy
+order by 1 
+
+
+insert into #TempTableTest1 (Vala, Valb)
+	select distinct
+	rtrim(B.scode)+'Z' as ValA, 
+	'Z'+'                      '+(Right('00000000'+cast(count(distinct #temptabletest2.valb) as varchar),8))
+	+Replace((Right('000000000000000'+cast((select sum (#temptabletest2.vald) from #temptabletest2 where #temptabletest2.valc = b.scode) as varchar),15)),'.','')+'00000000000000000000000000000000000000000000' as valb
+from trans tr, property p, bank b, person ps, detail d, #temptabletest2
+Where 1=1
+	and tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   ps.hmy = case when tr.hremittancevendor = 0 then tr.hAccrualAcct else tr.hremittancevendor end
+	and   tr.hPerson = b.hMy
+	and tr.manualcheck = 0
+	and tr.adjustment = 0
+	and tr.sdateoccurred Between  '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+	and tr.sotherdate1 is null
+	and #temptabletest2.valc = b.scode
+Group By
+	tr.uRef,
+	tr.stotalamount,
+	b.smicrline,
+	b.scode,
+	ps.uLastName,
+	tr.sDateOccurred,
+	tr.uPostDate,
+	tr.voided,
+	tr.void,
+	b.hmy
+order by 1 
+Select 
+ValA as Property,
+ValB as Data
+From #TempTableTest1
+Order by 1
+//END SELECT

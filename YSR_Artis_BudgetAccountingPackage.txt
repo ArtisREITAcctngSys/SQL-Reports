@@ -1,0 +1,771 @@
+//Select Header
+Declare @StartDate as DateTime
+Declare @EndDate as Datetime
+Set @StartDate = '#FromDate#'
+Set @Enddate = DATEADD(mm,DATEDIFF(mm,0,'#Fromdate#')+12,0)-1
+Select
+@Startdate Startdate,
+@EndDate EndDate,
+Convert(Varchar,datepart(YY,@enddate),120)+ ' Budget - Revenue Assumptions' Title,
+p.scode PCode,
+p.saddr1 pname,
+p.hmy propertyID,
+Convert(Varchar,@StartDate,101)+ '  to ' + Convert(Varchar,@EndDate,101) Period
+from property p
+Where 1=1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+//End Select
+
+//Select FLORenew
+Select Distinct
+Flo.hmy,
+t.slastname currtenant,
+case flo.dtterminate when null then t.DTLEASETO else flo.dtterminate end leaseexpiry,
+FLO.SunitCode Unit,
+case when flo.sNewLeaseName is null then t.slastname + ' - Renewal' else flo.snewleasename end leasename,
+case when flo.dtSpecStart is null then flo.dtRenewDate else flo.dtspecstart end AnticipatedCommence,
+flo.irenewterm Term,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area,
+MLAC.Drenewamount Rent,
+MLAC.iabatemonthsrenew FreeRentMonths,
+TI.drenewamount TIPSF,
+p.hmy propertyID,
+LC.drenewLCamount LCAmnt,
+LC.dContPercent LCPerc,
+Flo.sNotes Notes
+
+from DCFFLO FLO
+left outer join COMMMLA MLAN on FLO.hspeclease = MLAN.hmY
+left outer join COMMMLA MLAR on FLO.hspecrenewal = MLAR.hmy
+Left outer join COMMMLALC LC on LC.hCommMLa = MLAR.hmy
+left outer join COMMMLATI TI on TI.hcommmla = MLAR.hmy
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+left outer join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+Left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left Outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+Inner join unit u on u.hmy = flo.hparentunit
+inner join commmlacharge MLAC on FLO.hspecrenewal = MLAC.hCommMLA
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.snewleasename is null
+and flo.dtrenewdate is not null
+and MLAC.hchargecode = 1
+and flo.ispectype <> 0
+order by 1
+//End Select
+
+//Select FLONew
+Select Distinct
+Flo.hmy,
+t.slastname currtenant,
+case flo.dtterminate when null then t.DTLEASETO else flo.dtterminate end leaseexpiry,
+FLO.SunitCode Unit,
+case when flo.sNewLeaseName is null then t.slastname + ' - Renewal' else flo.snewleasename end leasename,
+case when flo.dtSpecStart is null then flo.dtRenewDate else flo.dtspecstart end AnticipatedCommence,
+flo.inewleaseterm Term,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area,
+MLAC.Dnewamount Rent,
+MLAC.iabatemonthsnew FreeRentMonths,
+p.hmy propertyID,
+TI.dnewamount TIPSF,
+LLW.dnewamount LLWPSF,
+VAC.dnewamount VACPSF,
+LC.dnewLCamount LCPerc,
+CASE LC.iamounttype when 1 then '$/psf' when 0 then '%' else 'Flat Amount' end AmountType,
+FLO.sNotes Notes
+
+from DCFFLO FLO
+left outer join COMMMLA MLAN on FLO.hspeclease = MLAN.hmY
+left outer join COMMMLA MLAR on FLO.hspecrenewal = MLAR.hmy
+Left outer join COMMMLALC LC on LC.hCommMLa = MLAN.hmy
+left outer join COMMMLATI TI on TI.hcommmla = MLAN.hmy and TI.Hacct = 1656
+left outer join COMMMLATI LLW on LLW.hcommmla = MLAN.hmy and LLW.Hacct = 5890
+left outer join COMMMLATI VAC on VAC.hcommmla = MLAN.hmy and VAC.Hacct = 5179
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+left outer join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+left outer join unit u on u.hmy = flo.hparentunit
+inner join commmlacharge MLAC on FLO.hspeclease = MLAC.hCommMLA
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.snewleasename is not null
+and flo.dtspecstart is not null
+and MLAC.hchargecode = 1
+and flo.ispectype <> 0
+and (case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end) > 0
+order by 1
+
+//End Select
+
+//Select EarlyTerm
+Select Distinct
+p.hmy propertyID,
+t.slastname currtenant,
+flo.dtterminate leaseexpiry,
+FLO.SunitCode Unit,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area
+
+from DCFFLO FLO
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+inner join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+inner join unit u on u.hmy = flo.hparentunit
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.dtterminate is not null
+
+//End Select
+
+//Select AreaChange
+select distinct
+p.hmy propertyID,
+case when uc.modelunitcode in ('') then ud.newmodelunitcode else uc.modelunitcode end unit,
+case uc.ioptiontype when 1 then 'New' when 2 then 'End' when 3 then 'Remeasure' end Type,
+case uc.ioptiontype when 1 then 0 else uc.defaultarea end OrigArea,
+case uc.ioptiontype when 1 then ud.dsqft0 when 2 then 0 when 3 then uc.newdsqft end NewArea,
+UC.Dtchange asofdt
+from dcfunitconfig uc
+left outer join dcfunitconfigdetail ud on uc.hmy = ud.hdcfunitconfig 
+inner join DCFBudget B on b.hmy = UC.hdcfbudget
+inner join property p on p.hmy = uc.hparentproperty
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+
+//End Select
+
+//Select Header2
+Declare @stdate as datetime
+declare @enddate as datetime
+set @stdate = '#FromDate#'
+set @enddate =DATEADD(yy,DATEDIFF(YY,1,'#FromDate#'),365) - 1
+Select 
+cast(@enddate - @stdate+1 as INT) as numdays,
+Convert(Varchar,DATEADD(yy,DATEDIFF(YY,1,'#FromDate#'),365) - 1,101) AsOfDate,
+p.scode property,
+p.hmy propertyID,
+p.saddr1 Name
+from property p
+where 1 = 1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+//End Select
+
+//Select Recoveries
+select 
+p.hmy propertyID,
+p.scode property,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+cep.scode expensepool,
+crg.scode recoverygrp,
+rtrim(CT.Scode) EstimateCode,
+CTM.Scode MgmntFeeCode,
+CRC.cestimatebilled Prebill,
+CRC.CAdminBilled MgmntFeePreBill,
+CRC.csharenet TenantShare,
+CRC.Cshareadmin MgmntFee,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+crc.hamendment Amendment
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+Order by 2,3,6,5
+//End Select
+
+//Select TenantsOpCost
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crc.hamendment amend,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+ca.dContractArea contractarea,
+(case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end) * ca.dContractArea WeightedAvg, 
+crc.iDaysCalcTenant daystenant,
+rtrim(ct.scode) Chargecode
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'opest'
+Order by 2,3,4
+//End Select
+
+//Select TenantsTax
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crc.hamendment amend,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+ca.dContractArea contractarea,
+(case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end) * ca.dContractArea WeightedAvg, 
+crc.iDaysCalcTenant daystenant,
+rtrim(ct.scode) Chargecode
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'taxest'
+Order by 2,3,4
+//End Select
+
+//Select TenantsMfee
+Declare @DtFrom Datetime
+
+Set @Dtfrom = DATEADD(yy,DATEDIFF(YY,0,'#Date#'),0)
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+-- Case 
+-- when t.dtleasefrom < @dtfrom then @dtfrom Else t.dtleasefrom end DateFrom,
+-- case when T.DTLEASETO > '#date#' then '#date#' when t.dtleaseto is null then '#Date#' else t.DTLEASETO end Dateto,
+case when ca.dtstart < @dtfrom then @dtfrom else ca.dtstart end datefrom,
+case ca.istatus when 2 then case when  ca.dtmoveout > '#date#' then '#date#' else ca.dtmoveout end 
+	else case when ca.dtend is null then '#date#' when ca.dtend  > '#date#' then '#date#'  else ca.dtend end end dateto,
+ca.dContractArea contractarea
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#date#'
+and crc.iCalculationType = 1	
+Order by 2,4,3
+//End Select
+
+//Select MgmntFeeChgs
+Declare @stdate as datetime
+declare @enddate as datetime
+set @stdate = DATEADD(yy,DATEDIFF(YY,0,'#Date#'),0)
+set @enddate = '#DATE#'
+select 
+p.hmy propertyID,
+@stdate as StartDate,	
+t.scode Tcode,
+t.slastname Tname,
+case when cr.dtfrom < @stdate then @stdate else cr.dtfrom end  DTFROM,
+case when cr.dtto is null then @enddate+1 else case  when cr.dtto > @enddate then @enddate+1 else cr.dtto end end DTTO,
+cr.dmonthlyamount MonthlyAmnt,
+cr.dadminpercent MgmntFee,
+cc2.scode MgmntFeeCode,
+cc.scode Chagrecode,
+cc.ITYPE TYPE,
+t.scode+cc2.scode+convert(varchar,cr.dcontractarea,103) vlookup
+From commschedule cs
+inner join tenant t on t.hmyperson = cs.htenant
+inner join CamRule cr on cr.hschedule = cs.hmy
+inner join chargtyp cc on cc.hmy = cr.hchargecode
+inner join property p on p.hmy = t.hproperty
+left outer join chargtyp cc2 on cc2.hmy = cr.hadminchargecode
+where 1=1
+and p.hmy = #propertylist#
+and cr.dadminpercent > 0
+and cr.dtto > DATEADD(YEAR,-1,'#Date#')
+and cc.itype in (2,3)
+or p.hmy = #propertylist#
+and cr.dadminpercent > 0
+and cr.dtto is null
+and cc.itype in (2,3)
+//End Select
+
+//Select MfeeChg
+select
+p.hmy propertyID,
+A.scode Account,
+T.scode TenantCode,
+t.slastname TenantName,
+p.scode PropCode,
+GL.Damount Amount
+from GLDETAIL GL
+inner join acct a on a.hmy = GL.hacct
+Inner join tenant t on t.hmyperson = GL.Hperson
+Inner join property p on p.hmy = gl.hprop
+inner join trans tr on tr.hmy = gl.htran
+where a.scode in ('4450000', '4480000')
+and gl.ibook = 1
+and p.hmy = #propertylist#
+and tr.sotherdate2 between DATEADD(yy,DATEDIFF(YY,0,'#Date#'),0) and '#Date#'
+//End Select
+
+//Select TenantsIns
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crc.hamendment amend,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+ca.dContractArea contractarea,
+(case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end) * ca.dContractArea WeightedAvg, 
+crc.iDaysCalcTenant daystenant,
+rtrim(ct.scode) Chargecode
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'insest'
+Order by 2,3,4
+//End Select
+
+//Select TenantsHVAC
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crc.hamendment amend,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+ca.dContractArea contractarea,
+(case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end) * ca.dContractArea WeightedAvg, 
+crc.iDaysCalcTenant daystenant,
+rtrim(ct.scode) Chargecode
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'HVACEST'
+Order by 2,3,4
+//End Select
+
+//Select TenantsUtil
+Select Distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crc.hamendment amend,
+crc.dtfrom datefrom,
+crc.dtto dateto,
+crc.dnumerator contractarea,
+(case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end) * ca.dContractArea WeightedAvg, 
+crc.iDaysCalcTenant daystenant,
+rtrim(ct.scode) Chargecode
+
+from commRecoveryCalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+inner join CommAmendments ca on ca.hmy = crc.hAmendment
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'UtilEST'
+Order by 2,3,4
+//End Select
+
+//Select RecoveryTenants
+select distinct
+p.hmy propertyID,
+cep.scode expensepool,
+rtrim(CT.Scode) EstimateCode
+into temptable1
+
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+group by  cep.scode, ct.scode
+order by 2,3
+
+select distinct
+p.hmy propertyID,
+t.scode tcode, 
+t.SLASTname tenantname,
+t1.expensepool expensepool,
+t1.estimatecode estimatecode
+into temptable2
+
+from temptable t1,
+commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+order by 2,3
+
+select *
+from temptable2
+//End Select
+
+//Select RecoveryGrps
+select distinct
+p.hmy propertyID,
+p.scode property,
+crg.scode recoverygrp
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+order by 2,3
+//End Select
+
+//Select RecoveryAmnt
+select distinct
+p.hmy propertyID,
+p.scode property,
+cep.scode expensepool,
+crg.scode recoverygrp,
+rtrim(CT.Scode) EstimateCode,
+crc.cAccrualExpenseActual expenseamount
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+group by  crg.scode, p.scode, cep.scode, ct.scode, crc.cAccrualExpenseActual
+order by 2,4,3
+
+//End Select
+
+//Select ExpensePools
+select distinct
+p.hmy propertyID,
+p.scode property,
+cep.scode expensepool,
+crc.cAccrualExpenseActual expenseamount
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+order by 2,3,4
+//End Select
+
+//Select OpCostDetail
+select distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crg.scode recoverygrp,
+cep.scode expensepool,
+rtrim(CT.Scode) EstimateCode,
+crc.cAccrualExpenseActual expenseamount,
+crc.cexpenseadjustment Expenseadj,
+crc.cexpenseexclusion exclusion,
+crc.cexpensenet PoolSub,
+Case when crc.doccupancypercent = 0 then 100 else crc.doccupancypercent end occupancypercent,
+crc.doccupiedarea occupiedarea,
+Case when crc.dGrossUpPercent = 0 then 100 else crc.dgrossuppercent end grossupperc,
+crc.cExpenseGrossUp Grossup,
+case when crc.drecoveryfactorpercent = 0 then 100 else crc.drecoveryfactorpercent end recoveryfactor,
+case when crc.bAnchorDeduction = -1 then 'Yes' else '' end anchordeduction,
+crc.cexpenseanchor anchoramnt,
+crc.cceilingactual CAPAmnt,
+crc.idayscalctenant NoDays,
+case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end Prorationperc,
+crc.dnumerator numerator,
+crc.ddenominator denominator,
+crc.dsharepercent sharepercent,
+crc.cshareceiling ShareCap,
+crc.cshareadjustment ShareAdj,
+crc.csharenet NetShare
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'opest'
+order by 3,4,6
+//End Select
+
+//Select TaxDetail
+select distinct
+p.hmy propertyID,
+p.scode property,
+rtrim(dbo.commamendmentunits(crc.hamendment)) Units,
+t.SCODE tenantcode,
+t.SLASTNAME tenantname,
+crg.scode recoverygrp,
+cep.scode expensepool,
+rtrim(CT.Scode) EstimateCode,
+crc.cAccrualExpenseActual expenseamount,
+crc.cexpenseexclusion exclusion,
+crc.cexpensenet PoolSub,
+Case when crc.doccupancypercent = 0 then 100 else crc.doccupancypercent end occupancypercent,
+crc.doccupiedarea occupiedarea,
+Case when crc.dGrossUpPercent = 0 then 100 else crc.dgrossuppercent end grossupperc,
+crc.cExpenseGrossUp Grossup,
+case when crc.drecoveryfactorpercent = 0 then 100 else crc.drecoveryfactorpercent end recoveryfactor,
+case when crc.bAnchorDeduction = -1 then 'Yes' else '' end anchordeduction,
+crc.cexpenseanchor anchoramnt,
+crc.cceilingactual CAPAmnt,
+crc.idayscalctenant NoDays,
+case when crc.dprorationfactor = 0 then 1 else crc.dprorationfactor end Prorationperc,
+crc.dnumerator numerator,
+crc.ddenominator denominator,
+crc.dsharepercent sharepercent,
+crc.cshareceiling ShareCap,
+crc.csharenet NetShare
+from commrecoverycalc crc
+inner join property p on p.hmy = crc.hproperty
+inner join tenant t on t.HMYPERSON = crc.htenant
+inner join commexpensepool cep on cep.hmy = crc.hexpensepool
+inner join commrecoverygroup crg on crg.hmy = crc.hrecoverygroup
+inner join camrule cr on cr.hmy = crc.hcamrule
+Inner join Chargtyp CT on CT.HMY = CRC.hEstimateCharge
+left outer join chargtyp ctm on ctm.hmy = crc.hAdminCharge
+where 1=1
+and p.hmy = #propertylist#
+and crc.dtcalcto = '#Date#'
+and crc.iCalculationType = 1
+and ct.scode = 'taxest'
+order by 3,4,6
+//End Select
+
+//Select MgmntFeeClauses
+select distinct
+p.hmy propertyID,
+p.scode AS PropID,
+	p.saddr1 AS PROPERTY, 
+	t.slastname as tenant,
+	t.scode as leasecode,
+        t.sleasecompany as dba,
+	cc.sname, 
+cast(cc.sDesc as nvarchar(4000)) sdesc,  
+cc.sreference, cc.clausedate,
+	ccl.scode
+from property p
+	inner join listprop lp on lp.hproperty = p.hmy 
+	inner join attributes a on a.hprop = p.hmy 
+	inner join tenant t on t.hproperty = p.hmy 
+	inner join commtenant ct on ct.htenant = t.hmyperson
+	inner join commtenstatus ts on ts.istatus = t.istatus
+	inner join commleasetype cl on cl.hmy = ct.hleasetype
+	inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0))
+			  
+	left outer join CommSchedule cs  on cs.hamendment = ca.hmy and cs.itype=2
+		
+	left outer join CamRule cr on cr.hschedule = cs.hmy
+			
+	left outer join chargtyp ch on cr.hchargecode = ch.hmy  
+	inner join commclauses cc on ca.hmy = cc.hamendment
+	inner join commclauselib ccl on cc.hcommclauselib = ccl.hmy
+where 1=1
+and p.hmy = #propertylist#
+and ccl.scode = 'mgmtfee'
+and t.istatus = 0
+and ca.istatus not in (0,3)
+and cc.sdesc not in ('N/A')
+//End Select
+
+//Select SqFtRec
+select distinct 
+p.hmy propertyID,
+cd.scode Code,
+cd.sdesc Descript,
+crc.ddenominator SqFt
+from commdenominator cd
+inner join commdenominatordetail cdd on cdd.hDenominator = cd.hmy
+inner join commrecoverycalc crc on crc.hdenominator = cd.hmy
+inner join property p on p.hmy = cd.hproperty
+where 1=1
+and p.hmy = #propertylist#
+and crc.iCalculationType = 1
+and crc.dtcalcto = '#Date#'
+//End Select
+
+//Select Vacancy
+Declare @stdate as datetime
+Set @stdate = '#Date#'
+select 
+p.hmy propertyID,
+KPI.dtdate KPIDate,
+KPI.DVACANTAREA / KPI.Dtotalarea as Vacancy
+from ASCAP_commkpi KPI
+inner join property p on p.hmy = KPI.Hprop
+Where p.hmy = #propertylist#
+and KPI.dtdate <= @stdate
+and KPI.dtdate > DATEADD(yy,DATEDIFF(YY,0,@stdate),0)
+Order by 2
+//End Select
+
+//Select Vacancy2
+Declare @stdate as datetime
+Set @stdate = DATEADD(YY,DATEDIFF(YY,0,'#date#')+0,0) -1 
+select 
+p.hmy propertyID,
+KPI.dtdate KPIDate,
+KPI.DVACANTAREA / KPI.Dtotalarea as Vacancy
+from ASCAP_commkpi KPI
+inner join property p on p.hmy = KPI.Hprop
+Where p.hmy = #propertylist#
+and KPI.dtdate <= @stdate
+and KPI.dtdate > DATEADD(yy,DATEDIFF(YY,0,@stdate),0)
+Order by 2
+//End Select
+
+//Select Vacancy3
+Declare @stdate as datetime
+Set @stdate = DATEADD(YY,DATEDIFF(YY,0,'#date#')-1,0) -1
+select 
+p.hmy propertyID,
+KPI.dtdate KPIDate,
+KPI.DVACANTAREA / KPI.Dtotalarea as Vacancy
+from ASCAP_commkpi KPI
+inner join property p on p.hmy = KPI.Hprop
+Where p.hmy = #propertylist#
+and KPI.dtdate <= @stdate
+and KPI.dtdate > DATEADD(yy,DATEDIFF(YY,0,@stdate),0)
+Order by 2
+//End Select
+
+//Select Vacancy4
+Declare @stdate as datetime
+Set @stdate = DATEADD(YY,DATEDIFF(YY,0,'#date#')-2,0) -1
+select 
+p.hmy propertyID,
+KPI.dtdate KPIDate,
+KPI.DVACANTAREA / KPI.Dtotalarea as Vacancy
+from ASCAP_commkpi KPI
+inner join property p on p.hmy = KPI.Hprop
+Where p.hmy = #propertylist#
+and KPI.dtdate <= @stdate
+and KPI.dtdate > DATEADD(yy,DATEDIFF(YY,0,@stdate),0)
+Order by 2
+//End Select
+
+//Select Vacancy5
+Declare @stdate as datetime
+Set @stdate = DATEADD(YY,DATEDIFF(YY,0,'#date#')-3,0) -1
+select 
+p.hmy propertyID,
+KPI.dtdate KPIDate,
+KPI.DVACANTAREA / KPI.Dtotalarea as Vacancy
+from ASCAP_commkpi KPI
+inner join property p on p.hmy = KPI.Hprop
+Where p.hmy = #propertylist#
+and KPI.dtdate <= @stdate
+and KPI.dtdate > DATEADD(yy,DATEDIFF(YY,0,@stdate),0)
+Order by 2
+//End Select

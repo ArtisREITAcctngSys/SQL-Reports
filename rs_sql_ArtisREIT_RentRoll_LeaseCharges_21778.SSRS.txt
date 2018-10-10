@@ -1,0 +1,429 @@
+//Vista
+//Notes
+  Copyright (c) 2005 by Yardi Systems
+  NAME 	       : rs_Comm_RentRoll_LeaseCharges.txt
+
+  DESCRIPTION  : RentRoll - Lease Charges
+	
+  PLATFORM     : Sql Server 2000
+		
+  DEPENDENCIES : Files - rx_Comm_RentRoll_LeaseCharges_CPR_5854_060909.rpt
+	
+  NOTES        : 
+  
+  CREATED      : 14-Feb-2005
+
+  MODIFIED     : 05-Nov-2006 - PI-MNM - Added Lease Status Filter.	
+        	 08-May-2006 - PI-MNM - change RentRoll to Rent Roll in the Title section.
+        	 01-Aug-2007 - PI- As per the TR#103388
+		 08-Aug-2007 - PI - As per TR#102842        	 
+		 16-Aug-2007 - Nagesh - As per TR#106994
+		 23-Nov-2007 - Nagesh - As per TR#109036
+		 17-DEc-2007 - (PI) As per TR#85871 - PDF output error.	 		 		 
+		 18-Dec-2007 - Nagesh - As per TR#108637
+		 05-Feb-2008 - Nagesh - As per TR#112229
+		 15-Feb-2008 - Nagesh - As per TR#112394
+		 04-Nov-2008 - case#412882 Modified the report to include the GST taxes.
+		 			   Added Amount per area column in the summary section.
+		 17-Dec-2008 - PriyankaS - As per CPR#5854
+		 12-Feb-2009 - PriyankaS - As per Changes in CPR#5854
+		 18-Mar-2009 - PriyankaS - As per modification in CPR#5854
+		 13-May-2009 - PriyankaS - As per modifications in CPR # 5854
+		 26-May-2009 - PriyankaS - As per modifications in CPR # 5854 - Added Rent Charge steps, resolved rounding issue
+		 06-Jan-2010 - PriyankaS - As per case # 650491
+		 14-May-2010 - Geetanjali K Case#733683	- Sorted the report by Unit Number 
+							- Modified the report such that the relocation amendments  will be pulled now
+							- Added in the DBA Name  to the report
+							-  Changed the amount per area formula (formula = Charge amount in summary section * 12 / occupied area on report)
+		15-Sep-2010 - Case#807860 	- Modified the function such that it will now return the charge amount same as the monthly billing report does.
+												- Similarly modified the tax and the amount per area coulmn to go hand in hand with the charge amount (which was previously not in sync)
+		12-Jan-2011 - Case#895068 - Modified the condition of commamendment join
+		14-Mar-2012 - Case#1191386 - VyankateshN - Modified to make Main report and subreport's charge amount's total equal.
+		02-Apr-2012 - Case#1210128 - Ajinkya - Modified conditions in chargestep query to fix the issue of not pulling rent steps from relocation amendment.
+		05-Jan-2015 - CPR#21778 - v1.00 - Mayur - Converted the complete report from Crystal to SSRS.
+		07-Jan-2015 - CPR#21778 - v1.01 - Mayur - Issues resolved reported by QA(Formating Issues, Number Mismatch-Summary by charge code)
+		03-Apr-2015 - Case#2501586 - AnandD - Modified Ordering of the report as Zero values of area were getting displayed
+		24-Apr-2015 - Case#2579380 - Srinivasan - Modified the Chargestep query to prevent duplication of rows. Changed the unions to Union all.
+		23-Nov-2017 - Case#4829355 - Modified Files to resolve "Exporting rent roll report opens blank excel page" issue
+//End Notes
+
+//Database
+SSRS rs_comm_artis_reit_rentroll_leasecharges_CPR21778.rdlc
+//End Database
+
+//Version
+Case#2579380 Ver 1.1 Dtd:24-APR-2015
+//End Version
+
+//Crystal
+param asofdt = Select Convert(varchar,Convert(datetime,'#asofdt#'),101)
+param @atype = select l.text from commconfig inner join label l on 1=1 and l.subtype = 'square foot types' and iprefsqftcol = l.element
+param datemask = SELECT ci.sdatemask FROM COUNTRY_INFO ci, PMUSER pm WHERE ltrim(rtrim(pm.scountry)) = ltrim(rtrim(ci.scode)) AND  LTRIM(RTRIM(pm.uname))= LTRIM(RTRIM( '#@@USERNAME#' ))
+param numbermask = select ci.snumbermask from country_info ci, pmuser pm where ltrim(rtrim(pm.scountry)) = ltrim(rtrim(ci.scode)) and ltrim(rtrim(pm.uname)) = ltrim(rtrim('#@@USERNAME#' ))
+param Property = select case when  count(hmy)= max(Mypropertycount) then 'All Selected Properties' when count(hmy)>1 then 'All Selected Properties'   else max(ltrim(rtrim(p.saddr1))) + ' (' + max(ltrim(rtrim(p.scode))) + ')'  end from  property p , (select count(1) mypropertycount from property ) Pcount where  1=1 #condition1#  
+param lsType = select case when  count(hmy)= max(lscount) then 'All Selected Lease Types' when count(hmy)>1 then 'All Selected Lease Types' else max(ltrim(rtrim(cl.sdesc))) + ' (' + max(ltrim(rtrim(cl.scode))) + ')' end from commleasetype cl , (select count(1) Lscount from commleasetype) lscount where 1=1 #condition2#
+param Lease=select case when  count(hperson)= max(Mypropertycount) then 'All Selected Leases' when count(hperson)>1 then 'All Selected Leases' else max(ltrim(rtrim(t.slastname))) + ' (' + max(ltrim(rtrim(t.scode))) + ')'  end from (select hmyperson hperson ,scode,slastname from tenant) t , (select count(1) mypropertycount from tenant) Pcount where 1=1 #condition3#
+param LsStatus = #sLeaseStatus#
+param RentSteps = #RentSteps#
+//End Crystal
+
+//Title
+Custom Commercial Rent Roll - Lease Charges
+//End Title
+
+
+//Select 
+Declare @dt1 datetime
+declare @chargedate datetime
+Declare @monthlyamount decimal
+Set @dt1 = '#asofdt#'
+set @chargedate = @dt1 - datepart(dd,@dt1) + 1
+ 
+select /* a*/
+	ltrim(rtrim(p.sCode))Propcode 
+	, ltrim(rtrim(p.saddr1))Propname
+	, SUBSTRING (ltrim(rtrim(t.sLastName)) , 1, 20 ) LeaseName
+	, SUBSTRING (ltrim(rtrim(t.sLastName)) , 1, 20 ) + ' (' + ltrim(rtrim(t.scode)) + ')'	Leasecode
+	, isnull((select sdesc from commleasetype where hmy = ct.hleaseType),'N/A')LsType 
+	, t.dtLeaseFrom LsFrom 
+	, t.dtLeaseTo LsTo 
+	, datediff(mm,t.dtLeaseFrom,t.dtLeaseTo) + 1 LsTerms
+	, ca.hmy amendmentid
+	/*, round(isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0),2) ChgAmt*/
+	
+	
+	,case when cr.iProRatio=2 then
+	                   (case when  (month('#asofdt#') = month(cr.dtfrom) and year('#asofdt#')=year(cr.dtfrom)) or((month('#asofdt#')=(case when cr.JAN=0 then 1 else 0 end) 
+				        or month('#asofdt#')=(case when cr.FEB=0 then 2 else 0 end) 
+					or month('#asofdt#')=(case when cr.MAR=0 then 3 else 0 end) 
+					or month('#asofdt#')=(case when cr.APR=0  then 4 else 0 end)
+					or month('#asofdt#')=(case when cr.MAY=0 then 5 else 0 end)
+					or month('#asofdt#')=(case when cr.JUN=0 then 6 else 0 end)
+					or month('#asofdt#')=(case when cr.JUL=0 then 7 else 0 end)
+					or month('#asofdt#')=(case when cr.AUG=0 then 8 else 0 end)
+					or month('#asofdt#')=(case when cr.SEP=0  then 9 else 0 end)
+					or month('#asofdt#')=(case when cr.OCT=0 then 10 else 0 end)
+					or month('#asofdt#')=(case when cr.NOV=0  then 11 else 0 end)
+					or month('#asofdt#')=(case when cr.DEC=0 then 12 else 0 end)) )
+                                then round(isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0),2)
+                               else 0 end)
+
+else  round(isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0),2) end ChgAmt
+	
+	
+	, round(isnull(cr.dadminpercent,0),2) MgtFeePercent
+	, round(((isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy),0) * isnull(cr.dadminpercent,0)) / 100),2) MgtFee 
+	, round((round(isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy) ,0),2) * 12),2) ChgAmtAnnual
+	, round(case when isnull(vt.bcreatevat,0) = 0 then 0 else isnull(tax.dRate1,0) + isnull(tax.dRate2,0) end,2) TaxRate
+	, round((round(isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0),2) * round(case when isnull(vt.bcreatevat,0) = 0 then 0 else isnull(tax.dRate1,0) + isnull(tax.dRate2,0) end,2) / 100),2)
+	   + round((round(((isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy) ,0) * isnull(cr.dadminpercent,0)) / 100),2) * round(case when isnull(vt.bcreatevat,0) = 0 then 0 else isnull(tax.dRate1,0) + isnull(tax.dRate2,0) end,2) / 100),2) TaxAmount
+	, cht.scode ChgType
+	, cr.dtfrom Chgdtfrom
+	, isnull(cr.dtinactive,cr.dtto) Chgdtto
+	,CASE 
+		WHEN row_number() OVER (
+				PARTITION BY p.scode
+				,t.scode
+				ORDER BY p.scode
+					,t.scode
+				) = 1
+			THEN isnull(dbo.calcleasearea(t.hmyperson, @dt1), 0)
+		ELSE 0
+		END Area
+	, Cast(round(case when isnull(cr.dcontractarea,0) = 0 then 0 else isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0) * 12 / cr.dcontractarea end ,2) as Numeric(18,2)) ChgAmtPerArea
+	, dbo.commcalcarealabel(p.hmy) AType
+	, case when @dt1 between t.dtleasefrom and isnull(cr.dtinactive,t.dtleaseto) then 1 else 0 end iActive 
+	, case when row_number() over (partition by p.scode,t.scode,ca.hmy order by p.scode,t.scode,ca.hmy) = 1 then cat.Type else '' end AmendmentType
+	/*, isnull(t.sDeposit0,0) + isnull(t.sDeposit1,0) + isnull(t.sDeposit2,0) + isnull(t.sDeposit3,0) + isnull(t.sDeposit4,0) +isnull(t.sDeposit5,0) + isnull(t.sDeposit6,0) + isnull(t.sDeposit7,0) + isnull(t.sDeposit8,0) + isnull(t.sDeposit9,0) Depamt*/
+	,CASE 
+		WHEN row_number() OVER (
+				PARTITION BY p.scode
+				,t.scode
+				ORDER BY p.scode
+					,t.scode
+				) = 1
+			THEN isnull(t.sDeposit0, 0) ELSE 0
+		END Depamt
+	, ca.hmy AmendId
+	, case isnull(cr.hunit, 0) when 0 then dbo.commamendmentunits(ca.hmy) else (select scode from unit where hmy = cr.hunit) end aunits
+	, case isnull(cr.hunit, 0) when 0 then amendarea.aarea else cr.dcontractarea end aarea
+	, (case isnull(cr.hunit, 0) 
+		when 0 then dbo.commcalcarealabel(p.hmy) 
+			else 
+			(select
+		  	case  cr.iSqftCol 
+		   		when  0 then cpl.dsqft0   
+		   		when  1 then cpl.dsqft1  
+		   		when  2 then cpl.dsqft2  
+		   		when  3 then cpl.dsqft3  
+		   		when  4 then cpl.dsqft4  
+		   		when  5 then cpl.dsqft5  
+		   		when  6 then cpl.dsqft6  
+		   		when  7 then cpl.dsqft7  
+		   		when  8 then cpl.dsqft8  
+		   		when  9 then cpl.dsqft9  
+		   		when 10 then cpl.dsqft10  
+		   		when 11 then cpl.dsqft11  
+		   		when 12 then cpl.dsqft12  
+		   		when 13 then cpl.dsqft13  
+		   		when 14 then cpl.dsqft14  
+		   		when 15 then cpl.dsqft15  
+		  	else cpl.dsqft0  
+		  	end  
+		 	from commproparealabel cpl   
+		 	where cpl.hproperty = p.hmy) 
+   	end )	ChgUnitAreaColumn
+   	, ltrim(rtrim(dbo.commleaseunits(t.hmyperson,@dt1))) LeasedUnits
+   	, /* case when charindex(',',dbo.commleaseunits(t.hmyperson,@dt1)) > 0 then 2 else 1 end  */ 1 sortorder
+   	,t.hmyperson leasehmy
+   	,t.sleasecompany DBAname
+   	
+from Property p
+inner join tenant t on t.hproperty = p.hmy 
+inner join commtenant ct 	on ct.htenant = t.hmyperson
+inner join commtenstatus ts on ts.istatus = t.istatus
+inner join commleasetype cl on cl.hmy = ct.hleasetype
+inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0))
+			   /* and (@dt1 between ca.dtstart and  isnull(isnull(ca.DTmoveout,ca.dtend),'01/01/2100')) /* isnull(ca.dtend,'01/01/2100')  */*/
+			     and @dt1 between ca.dtstart and isnull(ca.dtend,'01/01/2100')
+inner join commamendmenttype cat on cat.itype=ca.itype
+left outer join CommSchedule cs  on cs.hamendment = ca.hmy and cs.itype=2
+			and @dt1 between cs.dtfrom and isnull(cs.dtto,'01/01/2100')
+left outer join CamRule cr on cr.hschedule = cs.hmy
+			and @dt1 between cr.dtfrom and isnull(cr.dtto,'01/01/2100')
+left outer join chargtyp cht on cht.hmy = cs.hchargecode and cht.itype in (0,2,3)
+left outer join Int60CamruleVatRates(@dt1) tax on (tax.thmy=t.hmyperson and tax.chmy=cr.hmy)
+left outer join ( select ca.hmy aid, sum(isnull(ux.dsqft, 0)) aarea
+		from Property p
+		inner join tenant t on t.hproperty = p.hmy 
+		inner join commtenant ct 	on ct.htenant = t.hmyperson
+		inner join commtenstatus ts on ts.istatus = t.istatus
+		inner join commleasetype cl on cl.hmy = ct.hleasetype
+		inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0))
+						and @dt1 between ca.dtstart and isnull(ca.dtend,'01/01/2100')
+		inner join unitxref ux on ux.htenant = t.hmyperson and ux.hamendment = ca.hmy
+		where 1=1
+		#conditions#		
+		group by ca.hmy) amendarea on amendarea.aid = ca.hmy
+left join intvattran vt on cr.hTranType = vt.hMy
+where 1 = 1 
+and ts.istatus in (0,1,2) /*Exclude Proposal state leases*/
+and ca.istatus not in (0,3) /* supress in process and ready ammendments */
+#conditions#
+
+union all
+
+/* Vacant units*/
+Select  
+	ltrim(rtrim(p.sCode))                     Propcode
+	, ltrim(rtrim(p.saddr1))     Propname
+	, NULL LeaseName
+	, 'Vacant (' + ltrim(rtrim(u.scode)) + ')'  LeaseCode
+	, '' LsType
+	, NULL LsFrom
+	, NULL LsTo
+	, NULL LsTerms
+	, NULL Amendmentid
+	, NULL ChgAmt
+	, NULL MgtFeePercent
+	, NULL MgtFee
+	, NULL ChgAmtAnnual
+	, NULL TaxRate
+	, NULL TaxAmount
+	, NULL ChgType
+	, NULL Chgdtfrom
+	, NULL Chgdtto
+	, isnull(dbo.calcunitarea(u.hmy,@dt1), 0)    Area 
+	, NULL ChgAmtPerArea	
+	, isnull(dbo.commcalcarealabel(p.hmy), ' ')     AType
+	, NULL iActive
+	, NULL AmendmentType
+	, NULL Depamt
+	, NULL AmendId
+	, u.scode aunits
+	, NULL aarea
+	, NULL ChgUnitAreaColumn
+	, 'zzzzzzzzzzzzzzzz' LeasedUnits
+	, 3 
+	, 0
+	,'' DBAname
+from Property p 
+	inner join unit u on u.hproperty = p.hmy and isnull(u.exclude,0) = 0 
+where 1 = 1 
+	#condition1#    
+	and isnull(dbo.calcunitarea(u.hmy,@dt1), 0) >= (case when '' <> '' then convert(numeric,'') else isnull(dbo.calcunitarea(u.hmy,@dt1), 0) end ) 
+	and  not exists ( select * from unitxref ux where 1=1 and ux.hUnit = u.hMy 
+		and (@dt1 between ux.dtLeaseFrom and isnull(ux.dtmoveout,isnull(ux.dtLeaseTo,'01-jan-2100'))) and isNull(ux.hTenant,0) <> 0 ) 
+        and ('') in ('#LeaseType#')
+        and ('') in ('#hLease#')
+order by 29,30,1,3,4,19 desc,9,16 
+//End Select
+	
+//Select chargestep
+Declare @dt1 datetime
+declare @chargedate datetime
+Declare @monthlyamount decimal
+Set @dt1 = '#asofdt#'
+
+select   /* ChargeStep*/
+ a .leasehmy
+,a. amendhmy
+,a. chargename
+,a .chargecode
+,a. datefrom
+,a.dateto
+,a .amount
+,a .perarea
+,a .Units
+,a .Amounttype
+	,CASE 
+		WHEN row_number() OVER (
+				PARTITION BY a .leasehmy
+				 
+				ORDER BY a .leasehmy
+					) =1 
+					then 
+						a.Type
+		ELSE ''
+		END AmendmentType
+	
+from (
+SELECT DISTINCT /* b*/ 
+     t.hmyperson leasehmy
+	,ca.hmy amendhmy
+	,cht.sname chargename
+	,cht.scode chargecode
+	,cr.dtfrom datefrom
+	,cr.dtto dateto
+	,/* (case when cr.iestimatetype = 1 then isnull(cr.destimated,0) * cr.dcontractarea else isnull(cr.destimated,0) end) amount, */ /* As per settings*/ (
+		CASE 
+			WHEN cr.iestimatetype = 1
+				THEN isnull(cr.destimated, 0) * cr.dcontractarea
+			ELSE isnull(cr.destimated, 0)
+			END
+		) / (
+		CASE cr.iamountperiod
+			WHEN 0
+				THEN 12
+			WHEN 1
+				THEN 3
+			ELSE 1
+			END
+		) amount
+	,/* Monthly */ /* (case when cr.iestimatetype = 1 then isnull(cr.destimated,0) * cr.dcontractarea else isnull(cr.destimated,0) end) * (case cr.iamountperiod when 0 then 1 when 1 then 4 else 12 end) amount, */ /* Annually */ CASE 
+		WHEN isnull(cr.dcontractarea, 0) = 0
+			THEN 0
+		ELSE cast(round((cr.dmonthlyamount * 12) / cr.dcontractarea,2) as numeric(18,2))
+		END perarea
+	,CASE isnull(cr.hunit, 0)
+		WHEN 0
+			THEN dbo.commamendmentunits(ca.hmy)
+		ELSE (
+				SELECT scode
+				FROM unit
+				WHERE hmy = cr.hunit
+				)
+		END Units
+	,(
+		CASE cr.iamountperiod
+			WHEN 0
+				THEN 'Annual Amount'
+			WHEN 1
+				THEN 'Quarterly Amount'
+			ELSE 'Monthly Amount'
+			END
+		) Amounttype
+		
+		,cat.Type type
+FROM Property p
+INNER JOIN tenant t ON t.hproperty = p.hmy
+INNER JOIN commtenant ct ON ct.htenant = t.hmyperson
+INNER JOIN commtenstatus ts ON ts.istatus = t.istatus
+INNER JOIN commleasetype cl ON cl.hmy = ct.hleasetype
+INNER JOIN commamendments ca ON ca.htenant = t.hmyperson
+	AND (
+		ca.itype IN (
+			0
+			,1
+			,2
+			,3
+			,5
+			,11
+			,12
+			,15
+			)
+		OR (
+			ca.itype = 6
+			AND isnull(ca.hamendmentmodified, 0) = 0
+			)
+		) /* and (@dt1 between ca.dtstart and isnull(ca.dtend,'01/01/2100')) /* isnull(isnull(ca.DTmoveout,ca.dtend),'01/01/2100'))*/ */
+LEFT OUTER JOIN unitxref ux ON ux.hAmendment = ca.hMy
+AND ux.hTenant IS NOT NULL /* Case#1210128 */
+INNER JOIN commamendmenttype cat ON cat.itype = ca.itype
+INNER JOIN CommSchedule cs ON cs.hamendment = ca.hmy
+AND cs.itype = 2
+INNER JOIN camRule cr ON cr.hschedule = cs.hmy
+INNER JOIN chargtyp cht ON cht.hmy = cs.hchargecode
+	AND cht.itype IN (2)
+where 
+	1=1
+	and '#RentSteps#' = 'Yes'
+	and (@dt1 between ca.dtstart and isnull(isnull(ux.dtMoveOut,ca.dtend),'01/01/2100')) /* Case#1210128 */
+	#conditions#
+) a
+//End Select	
+	
+//Select SummaryOfCharges
+Declare @dt1 datetime
+declare	@chargedate datetime 
+Set @dt1 = '#asofdt#'
+
+set @chargedate = @dt1 - datepart(dd,@dt1) + 1
+select   /* c*/
+/* Summary of Charges  by charge code */
+	p.scode propcode,
+	cht.scode ChgType, 
+	sum(round((isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy) ,0)),2)) ChgAmt, 
+	sum(round(((isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy) ,0)* isnull(cr.dadminpercent,0))/100),2)) MgtFeeAmount,  
+	sum(round((round(isnull(dbo.CalChargeAmt_CPR_5854(@Chargedate,cr.hmy),0),2) * round(case when isnull(vt.bcreatevat,0) = 0 then 0 else isnull(tax.dRate1,0) + isnull(tax.dRate2,0) end,2) / 100),2)
+	   + round((round(((isnull(dbo.CalChargeAmt_CPR_5854(@chargedate,cr.hmy) ,0) * isnull(cr.dadminpercent,0)) / 100),2) * round(case when isnull(vt.bcreatevat,0) = 0 then 0 else isnull(tax.dRate1,0) + isnull(tax.dRate2,0) end,2) / 100),2) ) TaxAmount,
+	(sum(round(case when isnull(cr.dcontractarea,0) = 0 then 0 else  (isnull(cr.dmonthlyamount ,0) * 12) / cr.dcontractarea end,2))) AnnualAmtperArea
+	
+from Property p 
+	inner join tenant t on t.hproperty = p.hmy 
+	inner join commtenant ct  on ct.htenant = t.hmyperson 
+	inner join commtenstatus ts on ts.istatus = t.istatus 
+	inner join commleasetype cl on cl.hmy = ct.hleasetype 
+	inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0)) /*(@dt1 between ca.dtstart and  isnull(isnull(ca.DTmoveout,ca.dtend),'01/01/2100'))*/ AND @dt1 BETWEEN ca.dtstart AND Isnull(ca.dtend, '01/01/2100') /*Case#1191386-Added this condition as that of main report as main report and subreport's charge amount's total were mismatching*/
+	inner join commamendmenttype cat on cat.itype=ca.itype 
+	inner join CommSchedule cs  on cs.hamendment = ca.hmy and cs.itype=2 and @dt1 between cs.dtfrom and isnull(cs.dtto,'01/01/2100') 
+	inner join CamRule cr on cr.hschedule = cs.hmy and @dt1 between cr.dtfrom and isnull(cr.dtto,'01/01/2100') 
+	inner join chargtyp cht on cht.hmy = cs.hchargecode and cht.itype in (0,2,3) 
+	left outer join Int60CamruleVatRates(@dt1) tax on (tax.thmy=t.hmyperson and tax.chmy=cr.hmy) 
+	left outer join ( select ca.hmy aid, sum(isnull(ux.dsqft, 0)) aarea 
+			from Property p inner join tenant t on t.hproperty = p.hmy 
+			inner join commtenant ct  on ct.htenant = t.hmyperson 
+			inner join commtenstatus ts on ts.istatus = t.istatus 
+			inner join commleasetype cl on cl.hmy = ct.hleasetype 
+			inner join commamendments ca on ca.htenant=t.hmyperson and (ca.itype in (0,1,2,3,5,11,12,15) or (ca.itype = 6 and isnull(ca.hamendmentmodified,0) = 0)) 
+			and @dt1 between ca.dtstart and isnull(ca.dtend,'01/01/2100') 
+			inner join unitxref ux on ux.htenant = t.hmyperson and ux.hamendment = ca.hmy where 1=1 
+			#conditions#
+		  group by ca.hmy) amendarea on amendarea.aid = ca.hmy 
+	left join intvattran vt on cr.hTranType = vt.hMy 
+where 1 = 1 and ts.istatus in (0,1,2) /*Exclude Proposal state leases*/ 
+and ca.istatus not in(0,3) /* supress in process and ready ammendments */
+#conditions#
+group by p.scode,cht.scode
+//End Select
+
+//Filter
+//Type,DataTyp,     Name,                Caption, 	Key,       																										 				      List,                       Val1,     Val2,  Mandatory, Multi-Type,  Title
+     C,      T,     hproperty,           Property,         ,          																										  				        61,        p.hmy = #hproperty#,         ,           Y,          Y,      Y,
+     0,      T,     LeaseType,           Lease Type,       ,  "select distinct clt.scode,clt.sdesc from property p inner join tenant t on p.hmy=t.hproperty inner join commtenant ct on t.hmyperson=ct.htenant inner join commleasetype clt on clt.hmy = ct.hleasetype where 1=1 #filter1#",   cl.scode in ('#LeaseType#'),                           ,         ,          Y,           , 
+     0,      T,     hLease,              Lease Id,         ,             																									     					 1,    t.scode IN ('#hLease#'),         ,           ,          Y,      Y,
+     0,      A,     asofdt,              As Of Date,       ,              																										 ,                                ,                           ,        Y,           ,          Y,
+     L,      T,     sLeaseStatus,        Lease Status,     , 																	                   select status from commtenstatus where istatus <> 2 order by istatus, ts.status in ( '#sLeaseStatus#' ),                           ,         ,           ,          Y,
+     L,	     T,     RentSteps	,	Show Rent Steps? ,  ,                                                                                                                                                                                                           "Yes^No"  ,    ,           ,     Y, ,                                     	
+//end filter   
+

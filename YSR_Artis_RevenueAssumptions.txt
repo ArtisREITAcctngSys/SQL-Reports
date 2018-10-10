@@ -1,0 +1,149 @@
+//Select Header
+Declare @StartDate as DateTime
+Declare @EndDate as Datetime
+Set @StartDate = '#FromDate#'
+Set @Enddate = DATEADD(mm,DATEDIFF(mm,0,'#Fromdate#')+12,0)-1
+Select
+@Startdate Startdate,
+@EndDate EndDate,
+Convert(Varchar,datepart(YY,@enddate),120)+ ' Budget - Revenue Assumptions' Title,
+p.scode PCode,
+p.saddr1 pname,
+p.hmy propertyID,
+Convert(Varchar,@StartDate,101)+ '  to ' + Convert(Varchar,@EndDate,101) Period
+from property p
+Where 1=1
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+//End Select
+
+//Select FLORenew
+Select Distinct
+Flo.hmy,
+t.slastname currtenant,
+case flo.dtterminate when null then t.DTLEASETO else flo.dtterminate end leaseexpiry,
+FLO.SunitCode Unit,
+case when flo.sNewLeaseName is null then t.slastname + ' - Renewal' else flo.snewleasename end leasename,
+case when flo.dtSpecStart is null then flo.dtRenewDate else flo.dtspecstart end AnticipatedCommence,
+flo.irenewterm Term,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area,
+Case when MLAC.iamounttype = 1 then MLAC.Drenewamount else (MLAC.drenewamount / (case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),1) else UD.Dsqft0 end)) * 12 end Rent,
+MLAC.iabatemonthsrenew FreeRentMonths,
+TI.drenewamount TIPSF,
+p.hmy propertyID,
+LC.drenewLCamount LCAmnt,
+LC.dContPercent LCPerc,
+Flo.sNotes Notes
+
+from DCFFLO FLO
+left outer join COMMMLA MLAN on FLO.hspeclease = MLAN.hmY
+left outer join COMMMLA MLAR on FLO.hspecrenewal = MLAR.hmy
+Left outer join COMMMLALC LC on LC.hCommMLa = MLAR.hmy
+left outer join COMMMLATI TI on TI.hcommmla = MLAR.hmy
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+left outer join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+Left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left Outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+Inner join unit u on u.hmy = flo.hparentunit
+inner join commmlacharge MLAC on FLO.hspecrenewal = MLAC.hCommMLA
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.snewleasename is null
+and flo.dtrenewdate is not null
+and MLAC.hchargecode = 1
+and flo.ispectype <> 0
+order by 1
+//End Select
+
+//Select FLONew
+Select Distinct
+Flo.hmy,
+t.slastname currtenant,
+case flo.dtterminate when null then t.DTLEASETO else flo.dtterminate end leaseexpiry,
+FLO.SunitCode Unit,
+case when flo.sNewLeaseName is null then t.slastname + ' - Renewal' else flo.snewleasename end leasename,
+case when flo.dtSpecStart is null then flo.dtRenewDate else flo.dtspecstart end AnticipatedCommence,
+flo.inewleaseterm Term,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area,
+Case when MLAC.iamounttype = 1 then MLAC.Dnewamount else (MLAC.dnewamount / (case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),1) else UD.Dsqft0 end)) * 12  end Rent,
+MLAC.iabatemonthsnew FreeRentMonths,
+p.hmy propertyID,
+TI.dnewamount TIPSF,
+LLW.dnewamount LLWPSF,
+VAC.dnewamount VACPSF,
+LC.dnewLCamount LCPerc,
+CASE LC.iamounttype when 1 then '$/psf' when 0 then '%' else 'Flat Amount' end AmountType,
+FLO.sNotes Notes
+
+from DCFFLO FLO
+left outer join COMMMLA MLAN on FLO.hspeclease = MLAN.hmY
+left outer join COMMMLA MLAR on FLO.hspecrenewal = MLAR.hmy
+Left outer join COMMMLALC LC on LC.hCommMLa = MLAN.hmy
+left outer join COMMMLATI TI on TI.hcommmla = MLAN.hmy and TI.Hacct = 1656
+left outer join COMMMLATI LLW on LLW.hcommmla = MLAN.hmy and LLW.Hacct = 5890
+left outer join COMMMLATI VAC on VAC.hcommmla = MLAN.hmy and VAC.Hacct = 5179
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+left outer join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+left outer join unit u on u.hmy = flo.hparentunit
+inner join commmlacharge MLAC on FLO.hspeclease = MLAC.hCommMLA
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.snewleasename is not null
+and flo.dtspecstart is not null
+and MLAC.hchargecode = 1
+and flo.ispectype <> 0
+and (case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end) > 0
+order by 1
+
+//End Select
+
+//Select EarlyTerm
+Select Distinct
+p.hmy propertyID,
+t.slastname currtenant,
+flo.dtterminate leaseexpiry,
+FLO.SunitCode Unit,
+case when UD.Dsqft0 is null then isnull(dbo.calcunitarea(u.hmy, '#FromDate#'),0) else UD.Dsqft0 end Area
+
+from DCFFLO FLO
+inner join DCFBudget B on b.hmy = FLO.hdcfbudget
+inner join tenant t on t.hmyperson = flo.hparenttenant
+inner join property p on p.hmy = FLO.hparentproperty
+left outer join dcfunitconfig UC on UC.HDCFBudget = b.hmy
+Left outer join dcfunitconfigdetail UD on UC.HMY = UD.HDCFunitconfig and ud.newmodelunitcode = flo.sunitcode and ud.newmodelunitcode is not null
+inner join unit u on u.hmy = flo.hparentunit
+
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+and flo.dtterminate is not null
+
+//End Select
+
+//Select AreaChange
+select distinct
+p.hmy propertyID,
+case when uc.modelunitcode in ('') then ud.newmodelunitcode else uc.modelunitcode end unit,
+case uc.ioptiontype when 1 then 'New' when 2 then 'End' when 3 then 'Remeasure' end Type,
+case uc.ioptiontype when 1 then 0 else uc.defaultarea end OrigArea,
+case uc.ioptiontype when 1 then ud.dsqft0 when 2 then 0 when 3 then uc.newdsqft end NewArea,
+UC.Dtchange asofdt
+from dcfunitconfig uc
+left outer join dcfunitconfigdetail ud on uc.hmy = ud.hdcfunitconfig 
+inner join DCFBudget B on b.hmy = UC.hdcfbudget
+inner join property p on p.hmy = uc.hparentproperty
+where 1=1 
+and p.HMY IN (SELECT hproperty FROM   listprop2 WHERE  hproplist IN ( #PropertyList# )) 
+and b.dtforecaststartdate = '#FromDate#'
+
+//End Select
+
+
+

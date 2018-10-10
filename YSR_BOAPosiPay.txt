@@ -1,0 +1,26 @@
+//Select BOAPosi
+Select
+	right ('000000000000' + replace (replace (b.sacctnum,' ',''),'-',''),12)+case when (tr.void = -1)
+	then 'V' else 'O'  end + right('0000000000'+replace(tr.uRef,' ',''),10) + right('000000000000'+ replace(Replace(sum(d.sAmount),'.',''),'-',''),12)
+	+ replace(convert(Varchar,tr.sDateOccurred,101),'/','') 
+	+ ' ' + LEFT(Replace(ps.uLastName + '                                                                                                                      ',',',''),66) detail
+from trans tr, property p, bank b, person ps, detail d
+Where tr.iType = 2
+	and   d.hChkOrChg = tr.hMy
+	and   d.hProp = p.hMy
+	and   tr.hAccrualAcct = ps.hMy
+	and   tr.hPerson = b.hMy
+	and   tr.manualcheck = 0
+	and tr.sdateoccurred between '#fromdate#' AND '#todate#'
+	and b.hmy in (#bcode#)
+Group By
+	b.sacctnum,
+	tr.uRef,
+	ps.uLastName,
+	tr.sDateOccurred,
+	tr.uPostDate,
+	tr.voided,
+	tr.void,
+	b.hmy
+order by 1
+//End Select

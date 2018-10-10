@@ -1,0 +1,188 @@
+//Select Header
+
+Select 
+Convert(Varchar,'#USEXCHG#',1) USExchg,
+Convert(Varchar,'#REPDATE#',103) ReportDate,
+Right(Convert(Varchar,DATEADD(Year,1,'#REPDATE#'),103),7) ReportDate1,
+Right(Convert(Varchar,DATEADD(Year,2,'#REPDATE#'),103),7) ReportDate2,
+Right(Convert(Varchar,DATEADD(Year,3,'#REPDATE#'),103),7) ReportDate3,
+Right(Convert(Varchar,DATEADD(Year,4,'#REPDATE#'),103),7) ReportDate4,
+Right(Convert(Varchar,DATEADD(Year,5,'#REPDATE#'),103),7) ReportDate5,
+Right(Convert(Varchar,DATEADD(Year,6,'#REPDATE#'),103),7) ReportDate6,
+Right(Convert(Varchar,DATEADD(Year,7,'#REPDATE#'),103),7) ReportDate7,
+Right(Convert(Varchar,DATEADD(Year,8,'#REPDATE#'),103),7) ReportDate8,
+Right(Convert(Varchar,DATEADD(Year,9,'#REPDATE#'),103),7) ReportDate9,
+Right(Convert(Varchar,DATEADD(Year,10,'#REPDATE#'),103),7) ReportDate10,
+Right(Convert(Varchar,DATEADD(Year,11,'#REPDATE#'),103),7) ReportDate11,
+Right(Convert(Varchar,DATEADD(Year,12,'#REPDATE#'),103),7) ReportDate12,
+Right(Convert(Varchar,DATEADD(Year,13,'#REPDATE#'),103),7) ReportDate13,
+Right(Convert(Varchar,DATEADD(Year,14,'#REPDATE#'),103),7) ReportDate14,
+Right(Convert(Varchar,DATEADD(Year,15,'#REPDATE#'),103),7) ReportDate15,
+Right(Convert(Varchar,DATEADD(Year,16,'#REPDATE#'),103),7) ReportDate16,
+Right(Convert(Varchar,DATEADD(Year,17,'#REPDATE#'),103),7) ReportDate17,
+Right(Convert(Varchar,DATEADD(Year,18,'#REPDATE#'),103),7) ReportDate18,
+Right(Convert(Varchar,DATEADD(Year,19,'#REPDATE#'),103),7) ReportDate19,
+Convert(Varchar,'#LIBOR#',1) Libor,
+Convert(Varchar,'#PRIME#',1) Prime
+
+//End Select
+
+//Select PRS
+select left(p.scode,4) Pcode,
+MO.scode MortCode,
+(MO.scode) + (right(convert(varchar, dad.dtpaydate,103),7)) vlookup,
+v.ulastname Lender,
+A.subgroup11 Borrower,
+p.saddr1 Property,
+mo.snotes Notes,
+a.subgroup7 Owner,
+a.subgroup1 MetroArea,
+A.subgroup13 DateofAcquisiton,
+A.subgroup3 AssetClass,
+CASE MC.hcurrency when 1 then 'CAD' when 2 then 'USD' end Currency,
+CASE MC.HCurrency when 2 then 
+		Case Mo.Iinterestmethod when 0 then Mo.dintrate
+		when 1 then ((mo.ibasispoints/100)+#LIBOR#) END
+	When 1 then Case Mo.Iinterestmethod when 0 then Mo.dintrate
+		when 1 then ((mo.ibasispoints/100)+#PRIME#) END END InterestRate,
+Case mo.iinterestmethod when 0 then 'fixed' when 1 then 'variable' end RateType,
+(MO.ioriginalloanterm / 12) TermToMaturity,
+Mo.dtmaturity MaturityDate,
+CASE MC.Hcurrency when 1 then DAD.Balloonpayment 
+		when 2 then (DAD.Balloonpayment)* #USEXchg# 
+		END DebtRepaymentMaturity,
+right (convert(varchar ,mo.dtmaturity,101),4) YearMaturity,
+CASE MC.Hcurrency when 1 then dad.dPrinBal 
+		when 2 then (dad.dprinbal) * #USExchg# 
+		end MortgageBalance,
+CASE MC.HCurrency when 1 then 
+		Case Mo.Iinterestmethod when 0 then (dad.balloonpayment * (mo.dintrate / 100))
+		when 1 then ((dad.balloonpayment) * ((mo.ibasispoints/100)+#Prime#)/100) END
+	 when 2 then 
+		Case Mo.Iinterestmethod when 0 then ((dad.balloonpayment * #USExchg#) * (mo.dintrate / 100)) 
+		when 1 then ((dad.balloonpayment * #USExchg#) * ((mo.ibasispoints/100)+#LIBOR#) / 100) END	
+		end WeightedAvgIntDebMaturity,
+CASE MC.HCurrency when 1 then 
+		Case Mo.Iinterestmethod when 0 then (dad.dprinbal * (mo.dintrate / 100)) 
+		when 1 then (dad.dprinbal * ((mo.ibasispoints/100) + #Prime#) / 100) END
+	when 2 then 
+		Case Mo.Iinterestmethod when 0 then ((dad.dprinbal * #USExchg#) * (mo.dintrate / 100)) 
+		when 1 then ((dad.dprinbal * #USExchg#) * ((mo.ibasispoints/100)+#LIBOR#) / 100) END
+		end WeightedAvgInterest,
+dad.dinterestrate EffectiveInterest,
+CASE MC.HCurrency when 1 then ((dad.dprinbal - dad.dlatepayment)) * (dad.dinterestrate / 100) 
+		when 2 then ((dad.dprinbal - dad.dlatepayment)*#USEXCHG#) * (dad.dinterestrate / 100) 
+		end  WeightedAvgEffectInterest,
+CASE MC.HCurrency when 1 then (Dad.dprinbal - (dad.dlatepayment)) 
+		when 2 then ((Dad.dprinbal - (dad.dlatepayment))*#USEXCHG#) 
+		END EffectivePrincipal,
+Right(Convert(Varchar,dad.dtpaydate,103),7) Paydate
+
+from mortgageAP Mo
+inner join DebtAmortSched DA on DA.Hmortgage = MO.Hmy
+Inner join DebtAmortSchedDetail DAD on DAD.hamortsched = da.hmy
+inner join property p on p.hmy = Mo.hprop
+inner join person v on v.hmy = MO.hvendor
+Inner Join Attributes A on p.hMy = a.hProp
+inner join MortgageAPMulticurrency MC on MC.Hmortgage = Mo.HMY
+Where 1=1
+#Conditions#
+and da.bvalid = '-1'
+and dad.dtpaydate between (dbo.First_Day(Convert(DATETIME,'#REPDATE#',101))) and CONVERT(DATETIME,'#REPDATE#', 101)
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 1, '#REPDATE#'))) and (DATEADD(Year, 1, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 2, '#REPDATE#'))) and (DATEADD(Year, 2, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 3, '#REPDATE#'))) and (DATEADD(Year, 3, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 4, '#REPDATE#'))) and (DATEADD(Year, 4, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 5, '#REPDATE#'))) and (DATEADD(Year, 5, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 6, '#REPDATE#'))) and (DATEADD(Year, 6, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 7, '#REPDATE#'))) and (DATEADD(Year, 7, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 8, '#REPDATE#'))) and (DATEADD(Year, 8, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 9, '#REPDATE#'))) and (DATEADD(Year, 9, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 10, '#REPDATE#'))) and (DATEADD(Year, 10, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 11, '#REPDATE#'))) and (DATEADD(Year, 11, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 12, '#REPDATE#'))) and (DATEADD(Year, 12, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 13, '#REPDATE#'))) and (DATEADD(Year, 13, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 14, '#REPDATE#'))) and (DATEADD(Year, 14, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 15, '#REPDATE#'))) and (DATEADD(Year, 15, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 16, '#REPDATE#'))) and (DATEADD(Year, 16, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 17, '#REPDATE#'))) and (DATEADD(Year, 17, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 18, '#REPDATE#'))) and (DATEADD(Year, 18, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 19, '#REPDATE#'))) and (DATEADD(Year, 19, '#REPDATE#'))
+or 1=1
+#Conditions#
+and da.bvalid = -1
+and dad.dtpaydate between (dbo.first_day(DateAdd(Year, 20, '#REPDATE#'))) and (DATEADD(Year, 20, '#REPDATE#'))
+//End Select
+
+//SELECT MortList
+select MO.Scode MOCODE,
+MO.SDESC MODESC,
+P.Scode PropCode,
+lp.dpercent OwnerPercent
+from mortgageap Mo
+inner join DebtAmortSched DA on DA.Hmortgage = MO.Hmy
+Inner Join Property P on P.hmy = MO.Hprop
+Inner join listprop2 lp on lp.hproperty = p.hmy
+where 1=1
+and da.bvalid = '-1'
+and Mo.dtbegin <= '#REPDATE#'
+and Mo.dtMaturity >= '#REPDATE#'
+and lp.hproplist = '158'
+//End Select
